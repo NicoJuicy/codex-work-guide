@@ -49,13 +49,14 @@ Skill 是一套可复用的工作方法。用 `/skills` 选择，或在任务中
 
 Plugin 用来分发 Skills 和连接器。MCP 让 Codex 访问外部工具与数据。可以简单理解为：Skill 规定怎么做，MCP 提供可以使用的系统。
 
-本仓库附带三个 Skill：
+本仓库附带四个 Skill：
 
 | Skill | 适用任务 |
 | --- | --- |
 | `$agent-reach` | 网页、GitHub 和社交平台调研；社区内容只作为讨论信号 |
 | `$shuorenhua` | 清理文章里的模板感和 AI 腔，同时保护事实、数字和术语 |
 | `$llm-wiki` | 维护 Codex + Obsidian 的 Markdown 知识库 |
+| `$design-geist` | 为网站、仪表盘和开发者工具提供 Geist 风格的前端设计规范 |
 
 其他高频能力通常以 Skill 或 Plugin 提供：PDF 阅读、Word 文档、表格分析、演示文稿、浏览器操作、邮件与日历、GitHub、长视频或书籍提炼。具体名称取决于本机安装情况，选择建议见 [SKILLS.md](SKILLS.md)。
 
@@ -101,7 +102,7 @@ obsidian-starter/
 
 1. 克隆仓库并在 Codex 中打开。
 2. 阅读或修改根目录的 `AGENTS.md`。
-3. 输入 `/skills`，确认三个仓库 Skill 已出现。
+3. 输入 `/skills`，确认四个仓库 Skill 已出现。
 4. 从 [PROMPTS.md](PROMPTS.md) 选择一个模板开始；需要其他能力时查看 [SKILLS.md](SKILLS.md)。
 5. 用 Obsidian 打开 `obsidian-starter/`，运行第一次 Ingest。
 
@@ -114,3 +115,7 @@ obsidian-starter/
 - [Andrej Karpathy：LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
 第三方 Skill 的来源和许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 前端设计规范
+
+`$design-geist` 是一份前端设计规范，适合网站、仪表盘、开发者工具和文档站。它规定了 Geist 字体、黑白灰配色、间距、圆角、组件、图标和动效的使用方式，用于实现克制、清晰、偏工程感的界面。它不是 Vercel 官方设计文档。

@@ -9,6 +9,7 @@ Skill 负责工作方法，Plugin 负责安装和分发，MCP 或 Connector 负�
 | `$agent-reach` | 调研网页、GitHub 或社交平台 | 仓库附带的是 Skill；平台 CLI、登录态和 cookies 需按上游文档配置 |
 | `$shuorenhua` | 修改公开文章、汇报和说明文字 | 保留事实、术语、数字和责任归属，只处理表达 |
 | `$llm-wiki` | 管理 Obsidian Markdown 知识库 | 支持 ingest、query 和 lint |
+| `$design-geist` | 设计网站、仪表盘和开发者工具 | 使用 Geist 字体、黑白灰配色和克制的组件规范 |
 
 打开本仓库后，Codex 会从 `.agents/skills/` 发现这些 Skill。若没有出现，重新打开任务或重启 Codex。
 

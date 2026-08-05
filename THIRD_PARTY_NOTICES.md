@@ -16,4 +16,12 @@ The repository includes the Skill instructions and references, not the full Agen
 
 The vendored directory includes the Skill instructions, references, evals, installation notes and assets.
 
+## Design Geist
+
+- Source: user-provided local Skill
+- Included path: `.agents/skills/design-geist/`
+- Separate license file: not provided
+
+This Skill describes a Vercel/Geist-inspired visual language. It is not presented as official Vercel documentation.
+
 The root MIT license applies only to original material in this repository. Vendored components retain their own licenses.
