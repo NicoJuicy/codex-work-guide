@@ -49,7 +49,7 @@ Skill 是一套可复用的工作方法。用 `/skills` 选择，或在任务中
 
 Plugin 用来分发 Skills 和连接器。MCP 让 Codex 访问外部工具与数据。可以简单理解为：Skill 规定怎么做，MCP 提供可以使用的系统。
 
-本仓库附带四个 Skill：
+本仓库附带六个可直接调用的 Skill，以及一个供 Nature Skills 使用的内部依赖包：
 
 | Skill | 适用任务 |
 | --- | --- |
@@ -57,6 +57,10 @@ Plugin 用来分发 Skills 和连接器。MCP 让 Codex 访问外部工具与数
 | `$shuorenhua` | 清理文章里的模板感和 AI 腔，同时保护事实、数字和术语 |
 | `$llm-wiki` | 维护 Codex + Obsidian 的 Markdown 知识库 |
 | `$design-geist` | 为网站、仪表盘和开发者工具提供 Geist 风格的前端设计规范 |
+| `$nature-figure` | 规划、绘制、审查和导出期刊级科研图表与科学示意图 |
+| `$nature-writing` | 规划和起草 Nature 风格论文正文与首次投稿材料 |
+
+`nature-shared` 随仓库一同提供，但只作为上述 Nature Skills 的共享规则和期刊格式依赖，不应单独调用。
 
 其他高频能力通常以 Skill 或 Plugin 提供：PDF 阅读、Word 文档、表格分析、演示文稿、浏览器操作、邮件与日历、GitHub、长视频或书籍提炼。具体名称取决于本机安装情况，选择建议见 [SKILLS.md](SKILLS.md)。
 
@@ -102,7 +106,7 @@ obsidian-starter/
 
 1. 克隆仓库并在 Codex 中打开。
 2. 阅读或修改根目录的 `AGENTS.md`。
-3. 输入 `/skills`，确认四个仓库 Skill 已出现。
+3. 输入 `/skills`，确认六个可调用的仓库 Skill 已出现。
 4. 从 [PROMPTS.md](PROMPTS.md) 选择一个模板开始；需要其他能力时查看 [SKILLS.md](SKILLS.md)。
 5. 用 Obsidian 打开 `obsidian-starter/`，运行第一次 Ingest。
 

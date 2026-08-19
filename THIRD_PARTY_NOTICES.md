@@ -24,4 +24,13 @@ The vendored directory includes the Skill instructions, references, evals, insta
 
 This Skill describes a Vercel/Geist-inspired visual language. It is not presented as official Vercel documentation.
 
+## Nature Skills
+
+- Source: https://github.com/Yuan1z0825/nature-skills
+- Source revision: `96e41d3348748796c239cf5cb85bd947e5b02d38`
+- Included paths: `.agents/skills/nature-figure/`, `.agents/skills/nature-writing/`, `.agents/skills/nature-shared/`
+- License: Apache License 2.0; see `.agents/skills/nature-skills-LICENSE`
+
+`nature-shared` is included because the two user-facing Skills reference it through relative paths. The vendored copy excludes local caches and generated runtime artifacts. Files under `nature-figure/assets/figures4papers/` retain the additional attributions and terms documented in their own `THIRD_PARTY_NOTICES.md`.
+
 The root MIT license applies only to original material in this repository. Vendored components retain their own licenses.
