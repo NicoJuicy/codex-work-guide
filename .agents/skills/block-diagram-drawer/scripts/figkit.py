@@ -426,7 +426,7 @@ class Fig:
             f.write(self.svg())
 
     # -- text --------------------------------------------------------------
-    def text(self, x, y, s, size=11.0, weight=400, color=INK, anchor="start", ls=0.0, box=None,
+    def text(self, x, y, s, size=11.5, weight=400, color=INK, anchor="start", ls=0.0, box=None,
              italic=False, opacity=None, family="sans"):
         """Rich text. family: sans (labels), serif (data names, quoted language), mono (tokens, code)."""
         attrs = f'x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{color}"'
@@ -447,7 +447,7 @@ class Fig:
         self.add(f"<text {attrs}>{rich(s, size)}</text>")
 
     # -- containers ----------------------------------------------------------
-    def panel(self, x, y, w, h, role, title, sub=None, dashed=False, horizontal=False, r=8, title_size=14, fill=None,
+    def panel(self, x, y, w, h, role, title, sub=None, dashed=False, horizontal=False, r=8, title_size=15, fill=None,
               sub_below=False):
         """Flat stage panel with a left-aligned bold title and a regular gray subtitle on the same line
         (or on the next line with sub_below=True for narrow panels).
@@ -492,7 +492,7 @@ class Fig:
             self.add(f'<path d="M{x + r} {y + 1.5}H{x + w - r}" stroke="{p.accent}" stroke-width="3" stroke-linecap="round"/>')
         return cid
 
-    def chip(self, x, y, w, h, s, role=None, size=10.5, fill=None, color=None, weight=400, r=3, stroke=None,
+    def chip(self, x, y, w, h, s, role=None, size=11.5, fill=None, color=None, weight=400, r=3, stroke=None,
              dashed=False, family="sans", italic=False):
         p = PAL[role] if role else None
         cid = self.card(x, y, w, h, fill=fill or (p.tint if p else "#FFFFFF"), stroke=stroke or (p.mid if p else HAIR),
@@ -501,7 +501,7 @@ class Fig:
                   anchor="middle", box=cid, family=family, italic=italic)
         return cid
 
-    def badge(self, x, y, s, role, size=10, h=17, w=None):
+    def badge(self, x, y, s, role, size=11, h=19, w=None):
         """Quiet tag for a key number: tint fill, bold deep text, no outline."""
         p = PAL[role]
         w = w or text_w(s, size, bold=True) + 12
@@ -511,7 +511,7 @@ class Fig:
         self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, weight=700, color=p.deep, anchor="middle", box=cid)
         return w
 
-    def pill(self, cx, cy, s, role="gray", size=11, h=21, fill="#FFFFFF", weight=400, italic=True, family="serif"):
+    def pill(self, cx, cy, s, role="gray", size=11.5, h=22, fill="#FFFFFF", weight=400, italic=True, family="serif"):
         """Label that sits on a connector: white knock-out background, serif italic text."""
         p = PAL[role]
         w = text_w(s, size) + 12
@@ -522,10 +522,10 @@ class Fig:
                   italic=italic, family=family)
         return w
 
-    def step(self, cx, cy, n, r=7.5, color=INK):
+    def step(self, cx, cy, n, r=8.5, color=INK):
         """Circled step number (thin outline)."""
         self.add(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="#FFFFFF" stroke="{color}" stroke-width="1"/>')
-        self.text(cx, cy + 3.6, str(n), size=10, color=color, anchor="middle")
+        self.text(cx, cy + 4, str(n), size=11, color=color, anchor="middle")
 
     # -- shapes with meaning ----------------------------------------------------
     def tokens(self, x, y, n, role, w=16, h=8, gap=4, lit=None, dashed=False, to_role=None):
@@ -559,7 +559,7 @@ class Fig:
         self.add(f'<path d="M{x + tick} {y}H{x}V{y + h}H{x + tick}M{x + w - tick} {y}H{x + w}V{y + h}H{x + w - tick}" '
                  f'fill="none" stroke="{color}" stroke-width="{sw}"/>')
 
-    def cylinder(self, x, y, w, h, role, s=None, size=11, family="serif", italic=True):
+    def cylinder(self, x, y, w, h, role, s=None, size=11.5, family="serif", italic=True):
         """Stored data (history, dataset)."""
         p = PAL[role]
         ry = min(6.0, h * 0.18)

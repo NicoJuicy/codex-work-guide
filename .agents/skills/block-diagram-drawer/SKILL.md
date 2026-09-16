@@ -47,13 +47,14 @@ When the user asks for a more detailed figure, add only structure grounded in ma
 - Give each concept one color role and keep it across every figure of the same report (for example reasoning model in `amber`, motor policy in `blue`, accept in `green`, override in `red`).
 - Outline only the module the reader should find first with `key=True`.
 - Use bold only for panel titles and key words, medium weight for module names, serif italic for data names and language, monospace for tokens and discrete outputs, and `$...$` for every symbol.
+- Keep every label at 11 px or larger at 1400 px width (body 11.5 to 12.5 px, module names 13 to 14 px, panel titles 15 px), because figures are read scaled down to column or slide width; when space runs out, cut words or grow the canvas height instead of shrinking text.
 - Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces) instead of decorative icons.
 - Draw method content (graphs, token rows, curves, math) with figkit primitives, and use vendored open-source SVG icons for recognizable objects and named products (see Open-source icons).
 - Pass `box=` for every label inside a container so the gate can check overflow.
 
 ### 4. Gate, look, fix, repeat
 
-Run the QA gate after every edit; it must report zero overflow, collisions, box overlaps, and lines through labels, with coverage of at least 0.55.
+Run the QA gate after every edit; it must report zero overflow, collisions, box overlaps, lines through labels, and labels below 11 px, with coverage of at least 0.55.
 Passing the gate is necessary, not sufficient, so always open the PNG and inspect it, including crops around dense cards, math, and connectors.
 Check that serif and monospace labels really render in those families, that arrows point the right way, and that no sketch implies data the source does not have.
 Do at least three gate-and-inspect cycles for a figure the user cares about.
@@ -92,6 +93,7 @@ When the user asks for a more compact figure, keep the content inventory and the
 - Share bands: route feedback lanes and their labels through panel title rows, and start cards beside a panel title at the title's top instead of below it.
 - Put connector labels in bands that already exist, such as the strip above a row of cards, instead of adding a label row.
 - Join short attribute lists into one line and shrink sketch frames before shrinking any font.
+- Never shrink text below the 11 px minimum to gain space; the gate rejects it.
 - Rerun the gate after every step; math with subscripts needs chips at least 20 px tall.
 
 ## Restyle requests

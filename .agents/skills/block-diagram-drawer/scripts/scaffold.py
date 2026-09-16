@@ -44,8 +44,8 @@ print(OUT)
 PANEL = '''# ---------------------------------------------------------------- ({label}) stage {n}
 top = f.panel({x}, 8, {w}, {h}, "{role}", "({label}) Stage {n}", sub="one-line subtitle", sub_below=True)
 c = f.card({cx}, top, {cw}, {ch}, "{role}")
-f.text({tx}, top + 20, "Module", size=12, weight=500, box=c)
-f.text({tx}, top + 44, "$x_t$ data label", size=11, color=MUTED, box=c, family="serif", italic=True)
+f.text({tx}, top + 22, "Module", size=13.5, weight=500, box=c)
+f.text({tx}, top + 46, "$x_t$ data label", size=11.5, color=MUTED, box=c, family="serif", italic=True)
 '''
 
 ROLES = ("gray", "blue", "amber", "green", "purple", "red", "orange")

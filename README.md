@@ -131,4 +131,4 @@ obsidian-starter/
 
 `$academic-figures-drawer` 以可编辑 `.drawio` 为源文件，输出 PNG、SVG 和 PDF，并通过尺寸、对齐、论文宽度截图与全局零重叠布线验收。所有语义连线必须使用明确的正交通道和垂直出入端口；检查器会自动审计技能卡、文字标签、容器边框以及线与线之间的交叉、贴边和重叠，任何问题都会直接阻止交付。科学逻辑优先使用 draw.io 原生矢量组件；需要图标时默认检索 MIT 许可的 Tabler outline，只保存实际使用的 SVG。Koboyo 仅在明确要求手绘风格时启用，不与 Tabler 混用。
 
-需要接近顶会论文的高密度静态图、又不需要 draw.io 可编辑源文件时，用 `$block-diagram-drawer`：用 Python 脚本调用 `figkit.py` 生成 SVG 和 PNG，再用无头 Chrome 检查文字溢出、文字重叠、方框重叠、连线穿过文字和画面覆盖率，覆盖率低于 0.55 或有任一问题都不能交付。它提供 `scaffold.py` 起步脚本，按先列内容清单、再定网格、再绘制和检查的流程出图；示意性的数据小图必须标注为示意，只改视觉时保持内容清单不变。机器人、相机、目标、清单这类可识别物体用 `svgicons.py` 按需下载 MIT 许可的 Tabler outline 图标，模型名可配 LobeHub logo；方法本身的结构仍用 figkit 图元绘制。
+需要接近顶会论文的高密度静态图、又不需要 draw.io 可编辑源文件时，用 `$block-diagram-drawer`：用 Python 脚本调用 `figkit.py` 生成 SVG 和 PNG，再用无头 Chrome 检查文字溢出、文字重叠、方框重叠、连线穿过文字、小于 11 px 的文字和画面覆盖率，覆盖率低于 0.55 或有任一问题都不能交付。它提供 `scaffold.py` 起步脚本，按先列内容清单、再定网格、再绘制和检查的流程出图；示意性的数据小图必须标注为示意，只改视觉时保持内容清单不变。机器人、相机、目标、清单这类可识别物体用 `svgicons.py` 按需下载 MIT 许可的 Tabler outline 图标，模型名可配 LobeHub logo；方法本身的结构仍用 figkit 图元绘制。

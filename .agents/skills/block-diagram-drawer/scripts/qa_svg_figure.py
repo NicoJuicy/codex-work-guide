@@ -9,13 +9,15 @@ acceptance. Reported checks:
 - boxOverlap: sibling cards/chips/thumbnails that partially overlap
 - lineText:   connector or curve strokes crossing a label that no opaque,
               later-drawn container covers
+- smallText:  labels set below the minimum size (11 px at 1400 px width, scaled
+              with the canvas); math scripts inside a label are exempt
 - coverage:   share of the canvas covered by cards, chips, thumbnails and text
 - framed:     share covered by stage panels or content
 
 Exit code 1 when any check fails or coverage is below --min-coverage.
 
 Usage:
-    python qa_svg_figure.py figure.svg [--png] [--json] [--min-coverage 0.55]
+    python qa_svg_figure.py figure.svg [--png] [--json] [--min-coverage 0.55] [--min-font 11]
 Set CHROME_PATH when the browser is not auto-detected.
 """
 
@@ -32,7 +34,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-CHECKS = ("overflow", "collide", "boxOverlap", "lineText")
+CHECKS = ("overflow", "collide", "boxOverlap", "lineText", "smallText")
 
 _CANDIDATES = (
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -51,9 +53,11 @@ const W=svg.viewBox.baseVal.width,H=svg.viewBox.baseVal.height;
 const R=b=>({x:b.x,y:b.y,w:b.width,h:b.height});
 const boxes={};
 svg.querySelectorAll('[data-box]').forEach(e=>{boxes[e.dataset.box]=Object.assign(R(e.getBBox()),{kind:e.dataset.kind,id:e.dataset.box});});
-const overflow=[],texts=[],textEls=[];
+const overflow=[],texts=[],textEls=[],smallText=[];
+const MIN_FONT=__MIN_FONT__*W/1400;
 svg.querySelectorAll('text').forEach(t=>{
   const b=R(t.getBBox()); if(!b.w) return; b.s=t.textContent.slice(0,40); texts.push(b); textEls.push(t);
+  const fs=parseFloat(getComputedStyle(t).fontSize); if(fs<MIN_FONT-0.01) smallText.push({s:b.s,size:fs});
   if(b.x<0||b.y<0||b.x+b.w>W||b.y+b.h>H) overflow.push({s:b.s,box:'canvas'});
   const B=boxes[t.dataset.in]; if(!B) return;
   const l=b.x-B.x,r=B.x+B.w-(b.x+b.w),tp=b.y-B.y,bt=B.y+B.h-(b.y+b.h);
@@ -89,7 +93,7 @@ strokes.forEach(e=>{
 let cov=0,pcov=0,n=0; const panels=Object.values(boxes).filter(b=>b.kind==='panel');
 const hit=(arr,x,y)=>arr.some(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);
 for(let y=2;y<H;y+=4)for(let x=2;x<W;x+=4){n++; if(hit(solid,x,y)||hit(texts,x,y)) cov++; if(hit(panels,x,y)||hit(solid,x,y)) pcov++;}
-const out={size:[W,H],texts:texts.length,overflow,collide,boxOverlap,lineText,coverage:+(cov/n).toFixed(3),framed:+(pcov/n).toFixed(3)};
+const out={size:[W,H],texts:texts.length,overflow,collide,boxOverlap,lineText,smallText,coverage:+(cov/n).toFixed(3),framed:+(pcov/n).toFixed(3)};
 const pre=document.createElement('pre'); pre.id='qa'; pre.textContent=JSON.stringify(out); document.body.appendChild(pre);
 """
 
@@ -108,11 +112,12 @@ def find_browser() -> str:
     raise SystemExit("Chrome, Chromium or Edge was not found; set CHROME_PATH to the browser executable.")
 
 
-def measure(svg_path: Path, browser: str) -> dict:
+def measure(svg_path: Path, browser: str, min_font: float = 11.0) -> dict:
     svg = svg_path.read_text(encoding="utf-8")
+    script = JS.replace("__MIN_FONT__", f"{float(min_font):g}")
     with tempfile.TemporaryDirectory() as tmp:
         page = Path(tmp) / "qa.html"
-        page.write_text(f"<!doctype html><meta charset=utf-8><body style='margin:0'>{svg}<script>{JS}</script></body>", encoding="utf-8")
+        page.write_text(f"<!doctype html><meta charset=utf-8><body style='margin:0'>{svg}<script>{script}</script></body>", encoding="utf-8")
         result = subprocess.run(
             [browser, "--headless=new", "--disable-gpu", "--virtual-time-budget=3000", "--dump-dom", page.as_uri()],
             capture_output=True, text=True, encoding="utf-8", timeout=180, check=True,
@@ -146,10 +151,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--png", action="store_true", help="also write a 2x PNG next to the SVG")
     parser.add_argument("--json", action="store_true", help="print the full JSON report")
     parser.add_argument("--min-coverage", type=float, default=0.55)
+    parser.add_argument("--min-font", type=float, default=11.0,
+                        help="smallest allowed label size in px at 1400 px canvas width")
     args = parser.parse_args(argv)
 
     browser = find_browser()
-    report = measure(args.svg, browser)
+    report = measure(args.svg, browser, args.min_font)
     if args.png:
         report["png"] = str(render_png(args.svg, report["size"], browser))
     failed = failures(report, args.min_coverage)

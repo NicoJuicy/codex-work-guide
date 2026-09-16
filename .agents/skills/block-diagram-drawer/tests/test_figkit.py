@@ -239,6 +239,19 @@ class QaGateTests(unittest.TestCase):
         self.assertEqual(len(report["lineText"]), 1)
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
+    def test_browser_flags_small_labels_but_not_math_scripts(self) -> None:
+        f = figkit.Fig(1400, 120)
+        f.text(20, 40, "tiny annotation", size=9.5)
+        f.text(20, 80, "readable $a_t^{2}$ label", size=11.5)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "small.svg"
+            f.save(str(path))
+            report = qa.measure(path, _browser_or_none())
+            relaxed = qa.measure(path, _browser_or_none(), min_font=9)
+        self.assertEqual([item["s"] for item in report["smallText"]], ["tiny annotation"])
+        self.assertEqual(relaxed["smallText"], [])
+
+    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_applies_monospace_family(self) -> None:
         # Narrow glyphs fit a 60 px box in sans; the same string only overflows if monospace really renders.
         f = figkit.Fig(300, 120)

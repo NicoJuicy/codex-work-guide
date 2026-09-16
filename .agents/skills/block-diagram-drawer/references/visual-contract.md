@@ -42,7 +42,7 @@ Compare the draft against strong paper figures on these axes before changing any
 - Do not put the figure title or a long subtitle inside the canvas; the paper caption carries the title.
 - Prefer a wide aspect ratio for pipelines (about 2.4:1 to 3.7:1 at 1400 px width) and stack rows only when the story has parallel variants or a layered hierarchy with vertical cross-layer arrows.
 - Panel title rows are shared space: cards beside the title may start at its top, and loop lanes with their labels may run through the row.
-- Shrinking fonts is the last resort; first remove redundant words, then tighten boxes to their content, then reflow.
+- Density never comes from small text: no label goes below 11 px at 1400 px width; first remove redundant words, then tighten boxes to their content, then reflow, then grow the canvas height.
 
 ## 4. Visual language
 
@@ -87,7 +87,8 @@ Avoid gradients on containers; a gentle gradient is acceptable only inside a tok
 - Math through `$...$` for every symbol; never fake math with sans italics.
 - Sentence case everywhere; no uppercase letter-spaced headers.
 - Chinese text stays upright in sans; do not synthesize italic CJK.
-- Sizes at 1400 px width: panel title 13.5 to 14 px, card name 12 to 13 px, body 10 to 11.5 px, annotations 9.5 to 10.5 px, one focal symbol 24 to 30 px.
+- Sizes at 1400 px width: panel title 15 px, card name 13 to 14 px, body 11.5 to 12.5 px, annotations, tags and schematic labels 11 to 11.5 px, one focal symbol 24 to 30 px.
+- Nothing below 11 px (scale the minimum with the canvas width): figures are read at column or slide width, where 9 to 10 px labels become unreadable. The QA gate enforces this with `smallText`.
 
 ### 4.4 Shape vocabulary
 
@@ -150,7 +151,7 @@ Method-specific structure (graphs, token rows, kinematic chains, curves) stays a
 
 ## 8. QA gate and its limits
 
-The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, strokes crossing uncovered labels, or coverage below the threshold.
+The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, strokes crossing uncovered labels, labels below the minimum size, or coverage below the threshold.
 QA cannot judge semantics, arrow direction, icon fit, misleading sketches, font fallback, or aesthetic balance, so the rendered PNG must still be inspected.
 Link every text element to its container with `box=` so overflow is checked; freestanding labels are still covered by the collision and line checks.
 
@@ -162,6 +163,8 @@ Link every text element to its container with `box=` so overflow is checked; fre
 - Serif math glyphs have tall bounding boxes; give large focal symbols about 1.2 times their font size of vertical clearance, and give connector labels a knock-out at least 21 px high.
 - A subscripted symbol such as $t_1$ or $\pi_{0.5}$ at 11.5 to 12 px overflows an 18 px chip; use chips at least 20 px tall.
 - A connector that must cross another connector should break the secondary (dashed feedback) line for a few pixels at the crossing rather than hide the primary flow.
+- An arrow that crosses a panel gutter must be drawn after both panels; otherwise the later panel's fill hides the arrowhead.
+- A label pill centered on a short connector hides the line and its direction; place the pill beside the connector instead.
 - Write primes as `a'_t` rather than as a superscript command, so the subscript attaches correctly.
 - Unbraced scripts such as `E_\theta` must consume the whole command; figkit handles this, and a regression test covers it.
 - Card-bottom chip rows reserve space; sketches placed above them must end at least 6 px earlier.

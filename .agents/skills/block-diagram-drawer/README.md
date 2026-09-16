@@ -15,10 +15,10 @@ python fig_pipeline.py
 python qa_svg_figure.py ../pipeline-figure.svg --png
 ```
 
-The QA gate fails on text overflow, text collisions, overlapping boxes, lines crossing labels, or content coverage below 0.55.
+The QA gate fails on text overflow, text collisions, overlapping boxes, lines crossing labels, labels smaller than 11 px, or content coverage below 0.55.
 Set `CHROME_PATH` if Chrome, Chromium, or Edge is not found.
 
-QA 脚本在出现文字溢出、文字重叠、方框重叠、连线穿过文字，或内容覆盖率低于 0.55 时判为不通过。
+QA 脚本在出现文字溢出、文字重叠、方框重叠、连线穿过文字、文字小于 11 px，或内容覆盖率低于 0.55 时判为不通过。
 找不到浏览器时设置 `CHROME_PATH`。
 
 ## What it enforces / 规范要点
