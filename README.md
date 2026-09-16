@@ -49,7 +49,7 @@ Skill 是一套可复用的工作方法。用 `/skills` 选择，或在任务中
 
 Plugin 用来分发 Skills 和连接器。MCP 让 Codex 访问外部工具与数据。可以简单理解为：Skill 规定怎么做，MCP 提供可以使用的系统。
 
-本仓库附带六个可直接调用的 Skill，以及一个供 Nature Writing 使用的内部依赖包：
+本仓库附带七个可直接调用的 Skill，以及一个供 Nature Writing 使用的内部依赖包：
 
 | Skill | 适用任务 |
 | --- | --- |
@@ -58,6 +58,7 @@ Plugin 用来分发 Skills 和连接器。MCP 让 Codex 访问外部工具与数
 | `$llm-wiki` | 维护 Codex + Obsidian 的 Markdown 知识库；来源录入必须包含本地图片和来源说明 |
 | `$design-geist` | 为网站、仪表盘和开发者工具提供 Geist 风格的前端设计规范 |
 | `$academic-figures-drawer` | 生成、审查和导出论文框图与方法示意图；可编辑的 draw.io 路线默认使用 Tabler outline 图标，高密度 SVG 路线用于信息密集的论文风格静态图 |
+| `$block-diagram-drawer` | 把描述、草图或截图画成接近 CoRL / RSS / ICRA 风格的高密度框图，输出 SVG 和 PNG，并用无头 Chrome 做质量检查 |
 | `$nature-writing` | 规划和起草 Nature 风格论文正文与首次投稿材料 |
 
 `nature-shared` 随仓库一同提供，但只作为 `$nature-writing` 的共享规则和期刊格式依赖，不应单独调用。
@@ -131,3 +132,5 @@ obsidian-starter/
 `$academic-figures-drawer` 以可编辑 `.drawio` 为源文件，输出 PNG、SVG 和 PDF，并通过尺寸、对齐、论文宽度截图与全局零重叠布线验收。所有语义连线必须使用明确的正交通道和垂直出入端口；检查器会自动审计技能卡、文字标签、容器边框以及线与线之间的交叉、贴边和重叠，任何问题都会直接阻止交付。科学逻辑优先使用 draw.io 原生矢量组件；需要图标时默认检索 MIT 许可的 Tabler outline，只保存实际使用的 SVG。Koboyo 仅在明确要求手绘风格时启用，不与 Tabler 混用。
 
 需要接近顶会论文的高密度静态图时，使用高密度 SVG 路线：用 Python 脚本调用 `figkit.py` 生成 SVG，再用无头 Chrome 检查文字溢出、文字重叠、方框重叠、连线穿过文字和画面覆盖率，覆盖率低于 0.55 或有任一问题都不能交付。示意性的数据小图必须标注为示意，不画来源里没有的数字。
+
+`$block-diagram-drawer` 是这条高密度 SVG 路线的独立版本，不需要 draw.io。它提供 `scaffold.py` 起步脚本、`figkit.py` 图元库和 QA 脚本，按先列内容清单、再定网格、再绘制和检查的流程出图；只改视觉时保持内容清单不变。

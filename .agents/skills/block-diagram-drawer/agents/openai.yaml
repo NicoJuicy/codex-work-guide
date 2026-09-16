@@ -1,0 +1,4 @@
+interface:
+  display_name: "Block Diagram Drawer"
+  short_description: "Dense paper-style block diagrams as SVG"
+  default_prompt: "Use $block-diagram-drawer to turn this description, sketch or screenshot into a dense, paper-style block diagram. Keep the content inventory exact, follow the CoRL/RSS/ICRA visual contract, and pass the headless-Chrome QA gate before handing over the SVG and PNG."
