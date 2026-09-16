@@ -101,8 +101,22 @@ Avoid gradients on containers; a gentle gradient is acceptable only inside a tok
 | stage transition | `block_arrow` |
 | grouped inputs | `brace` |
 | task scene | `scene` thumbnail (replace with a task-specific sketch when needed) |
+| recognizable object (robot, camera, door, goal, checklist) | vendored Tabler outline icon via `asset` |
+| named model or provider | vendored LobeHub mono logo via `asset` |
 
-Generic UI icons are not content; use a drawn sketch that carries meaning (for example a kinematic chain for an IK solver) or nothing.
+Icons label objects; they are not content.
+Method-specific structure (graphs, token rows, kinematic chains, curves) stays a drawn sketch, while recognizable objects use a vendored open-source icon instead of a hand-drawn imitation.
+
+### 4.5 Open-source icons
+
+- Source icons with `scripts/svgicons.py`: `tabler` for pictograms, `lobe` for model and provider logos; both are MIT and only selected files are downloaded.
+- Compare two or three candidates per noun on a contact sheet rendered with `asset`, and choose the silhouette that names the object.
+- Use one outline family per figure; do not mix Tabler with built-in `icon()` glyphs in the same row.
+- Display stroke 1.5 px (the `sw` default), size 14 to 24 px, color from the role's deep tone or ink; `asset` rescales the stroke so every size matches.
+- An icon sits beside a label or inside a chip and never replaces the label; do not put an icon on every card.
+- Logos are trademarks: use one only for the product the figure names, prefer the mono variant, and keep it smaller than the module name.
+- `asset` rejects scripts, stylesheets, event handlers, embedded documents, entities and external references, and namespaces internal ids, because symbols share the figure document.
+- Keep `assets/` with the build script: the SVGs, the copied `LICENSE-*.txt`, and `ASSETS.md` with each source URL.
 
 ## 5. Content grammar and honesty
 
@@ -151,6 +165,9 @@ Link every text element to its container with `box=` so overflow is checked; fre
 - Curves in schematic plots often cross their own annotations; place annotations in empty plot regions and use a short leader arrow when needed.
 - Gradients, uppercase tracked headers, saturated filled badges, and decorative UI icons are the fastest way to make a figure look machine-generated.
 - A decorative element that looks like data invites misreading; either make it schematic and labeled or remove it.
+- Tabler sets `stroke-width="2"` on a 24 px grid, which renders thinner at 16 px and heavier at 32 px; place icons with `asset` so the display stroke stays constant.
+- LobeHub color variants carry brand gradients that clash with a muted palette; use the mono variant tinted with ink.
+- A hand-drawn glyph next to a vendored icon of the same kind reads as two styles; replace the whole row.
 
 ## 10. figkit API summary
 
@@ -165,6 +182,7 @@ Link every text element to its container with `box=` so overflow is checked; fre
 | `arrow(d, color=WIRE, dashed, start, end, open_)`, `line`, `dot`, `brace` | connectors |
 | `scene(x, y, w, h, frame)` | schematic tabletop thumbnail |
 | `bars`, `curves`, `strip` | schematic data sketches |
-| `icon(name, x, y, size, color)` | small line glyph; avoid as the only content of a card |
+| `asset(path, x, y, size, color, sw=1.5)` | vendored open-source SVG icon or logo as a shared symbol with a QA box |
+| `icon(name, x, y, size, color)` | built-in line glyph; offline fallback when no vendored icon fits |
 
 See `examples/example_pipeline.py` for a complete figure that exercises the visual language and passes the QA gate.

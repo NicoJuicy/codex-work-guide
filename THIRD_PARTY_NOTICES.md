@@ -38,6 +38,17 @@ Do not assume that this repository's root MIT license relicenses the vendored Sk
 
 The Skill uses Tabler Icons as its default external pictogram source. The complete Tabler library is not bundled; selected icons are downloaded from the official repository and retain the MIT notice in `.agents/skills/academic-figures-drawer/references/TABLER_ICONS_LICENSE.txt`.
 
+## Block Diagram Drawer icon sources
+
+`.agents/skills/block-diagram-drawer/` is original to this repository and covered by its root license.
+Its `svgicons.py` downloads individual icons on demand and does not bundle either icon library.
+
+- Tabler Icons: https://github.com/tabler/tabler-icons, MIT, Copyright (c) 2020-2026 Paweł Kuna; license text in `references/licenses/tabler-icons.txt`.
+- LobeHub Icons: https://github.com/lobehub/lobe-icons, MIT, Copyright (c) 2023 LobeHub; license text in `references/licenses/lobe-icons.txt`.
+
+Each vendored icon folder receives a copy of the matching license and an `ASSETS.md` source ledger.
+Model and provider logos are trademarks of their owners and are used only to identify the named product.
+
 ## Nature Skills
 
 - Source: https://github.com/Yuan1z0825/nature-skills

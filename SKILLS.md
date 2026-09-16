@@ -11,7 +11,7 @@ Skill 负责工作方法，Plugin 负责安装和分发，MCP 或 Connector 负�
 | `$llm-wiki` | 管理 Obsidian Markdown 知识库 | 支持 ingest、query 和 lint；每次来源录入必须包含本地图片和来源说明 |
 | `$design-geist` | 设计网站、仪表盘和开发者工具 | 使用 Geist 字体、黑白灰配色和克制的组件规范 |
 | `$academic-figures-drawer` | 制作、修改或审查论文框图与方法示意图 | 以 `.drawio` 为源文件，默认使用 Tabler outline；强制正交布线，并对线框碰撞、边框贴线、线线交叉和重叠执行全局零容忍检查；高密度静态 SVG 图改用 `$block-diagram-drawer` |
-| `$block-diagram-drawer` | 画论文、报告或案例分析里的框图与方法示意图 | 以 figkit 构建脚本为源文件，输出 SVG 和 PNG；低饱和配色、字重与斜体层级，用无头 Chrome 检查溢出、重叠、连线穿字和覆盖率 |
+| `$block-diagram-drawer` | 画论文、报告或案例分析里的框图与方法示意图 | 以 figkit 构建脚本为源文件，输出 SVG 和 PNG；低饱和配色、字重与斜体层级，识别性物体用按需下载的 Tabler / LobeHub 开源 SVG 图标，用无头 Chrome 检查溢出、重叠、连线穿字和覆盖率 |
 | `$nature-writing` | 规划或起草 Nature 风格论文与首次投稿材料 | 按论文类型、章节、语言和目标期刊加载对应规则 |
 
 打开本仓库后，Codex 会从 `.agents/skills/` 发现这些 Skill。若没有出现，重新打开任务或重启 Codex。

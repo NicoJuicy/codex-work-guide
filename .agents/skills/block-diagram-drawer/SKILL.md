@@ -47,6 +47,7 @@ When the user asks for a more detailed figure, add only structure grounded in ma
 - Outline only the module the reader should find first with `key=True`.
 - Use bold only for panel titles and key words, medium weight for module names, serif italic for data names and language, monospace for tokens and discrete outputs, and `$...$` for every symbol.
 - Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces) instead of decorative icons.
+- Draw method content (graphs, token rows, curves, math) with figkit primitives, and use vendored open-source SVG icons for recognizable objects and named products (see Open-source icons).
 - Pass `box=` for every label inside a container so the gate can check overflow.
 
 ### 4. Gate, look, fix, repeat
@@ -58,9 +59,29 @@ Do at least three gate-and-inspect cycles for a figure the user cares about.
 
 ### 5. Deliver
 
-- Put the SVG and PNG where the user keeps figures, and the build scripts plus the vendored kit in a `src/` folder beside them.
+- Put the SVG and PNG where the user keeps figures, and the build scripts plus the vendored kit in a `src/` folder beside them; keep `src/assets/` (icons, license files, `ASSETS.md`) with the scripts.
 - Before overwriting figures the user already has, move the previous versions into an archive folder such as `v1/`, and say so.
 - Send or show the PNG, summarize what changed, and state which parts are schematic.
+
+## Open-source icons
+
+Readers recognize a robot, camera, door, target, or checklist faster than the word, so figures should use real open-source icons for such objects instead of hand-drawn glyphs.
+`scripts/svgicons.py` searches two MIT families and vendors only the icons a figure uses: `tabler` (Tabler Icons outline, 5000+ pictograms) and `lobe` (LobeHub logos of AI models and providers).
+
+```bash
+python <skill-dir>/scripts/svgicons.py search "robot arm"
+python <skill-dir>/scripts/svgicons.py search qwen --family lobe
+python <skill-dir>/scripts/svgicons.py get tabler:target --out <project>/figures/src/assets/target.svg
+```
+
+Place an icon with `f.asset(HERE / "assets" / "target.svg", x, y, 16, color=A.deep)`; figkit validates the file, embeds it once as a symbol, and normalizes the display stroke.
+
+- Search two or three synonyms and compare silhouettes on a contact sheet before choosing; pick the icon whose shape names the object, not a loosely related metaphor.
+- Keep one outline family (Tabler) per figure, a 1.5 px display stroke, and 14 to 24 px sizes; tint icons with the role's deep color or ink.
+- Put an icon beside a label or inside a chip; it never replaces the label, never stands in for model internals, data, or math, and never becomes decoration on every card.
+- Use a `lobe` logo only for the exact model or provider the figure names, prefer the mono variant, and keep it smaller than the module name.
+- `get` copies the family license and records the source in `assets/ASSETS.md`; ship both with the figure.
+- Without network access, fall back to figkit's built-in `icon()` glyphs and say so.
 
 ## Restyle requests
 
@@ -81,6 +102,8 @@ Keep Chinese text upright in sans; never italicize CJK.
 | `scripts/scaffold.py` | start a figure: vendors the kit and writes a starter build script |
 | `scripts/figkit.py` | primitives: panels, cards, chips, tags, text with math, tokens, trapezoids, brackets, cylinders, bubbles, steps, block arrows, connectors, thumbnails, sketches |
 | `scripts/qa_svg_figure.py` | headless-Chrome QA gate and 2x PNG export |
+| `scripts/svgicons.py` | search and vendor open-source SVG icons (Tabler outline, LobeHub logos) with license and ledger |
+| `references/licenses/` | MIT license texts copied beside vendored icons |
 | `references/visual-contract.md` | full visual contract, API table, and pitfalls |
 | `examples/example_pipeline.py` | complete reference figure |
 | `tests/` | unit and browser tests for the kit (`python -m unittest discover -s tests`) |

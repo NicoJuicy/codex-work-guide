@@ -20,13 +20,20 @@ Text API: plain text with `$...$` math islands, for example
 "FK → $\\hat{\\tau}_{\\mathrm{EEF}}$". Math supports _ ^ {} \\hat \\bar \\tilde
 \\mathrm \\mathbb \\mathcal, Greek letters, relations (= \\in \\le \\to \\gets)
 with TeX-like spacing, and primes written as a'_t.
+
+Icons: `Fig.asset` embeds vendored open-source SVGs (Tabler outline icons, LobeHub
+model logos) fetched with `svgicons.py`; hand-drawn shapes stay for method content.
 """
 
 from __future__ import annotations
 
+import hashlib
 import math
 import re
+import xml.etree.ElementTree as ET
 from html import escape
+from pathlib import Path
+from typing import NamedTuple
 
 SANS = "'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Hiragino Sans GB', sans-serif"
 SERIF = "STIXGeneral, 'Times New Roman', Times, 'Songti SC', serif"
@@ -244,7 +251,78 @@ def rich(s: str, size: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Icons (24x24 line glyphs; use sparingly, never as the only content of a card)
+# Vendored open-source SVG assets
+# ---------------------------------------------------------------------------
+
+SVG_NS = "http://www.w3.org/2000/svg"
+# Root presentation attributes worth keeping. stroke-width is dropped so each use sets one display
+# stroke; width, height, class and style belong to the icon's original page, not to this figure.
+_ASSET_ROOT_KEEP = ("fill", "stroke", "stroke-linecap", "stroke-linejoin", "fill-rule", "clip-rule")
+_ASSET_DROP_TAGS = {"title", "desc", "metadata"}
+# Symbols share the figure's document, so scripts, stylesheets, embedded documents and external
+# references could run code, restyle every label, or pull remote content at render time.
+_ASSET_UNSAFE = re.compile(
+    r"<\s*(?:script|style|foreignobject|iframe|image)\b|<!doctype|<!entity|\son[a-z]+\s*="
+    r"|href\s*=\s*[\"'](?!#)|url\(\s*(?!#)",
+    re.IGNORECASE,
+)
+
+
+class SvgAsset(NamedTuple):
+    slug: str
+    view_box: tuple[float, float, float, float]
+    body: str
+
+
+def _local(name: str) -> str:
+    return name.rsplit("}", 1)[-1]
+
+
+def parse_svg_asset(raw: str, source: str = "asset") -> SvgAsset:
+    """Validate a small standalone SVG and turn it into symbol-ready markup with namespaced ids."""
+    bad = _ASSET_UNSAFE.search(raw)
+    if bad:
+        raise ValueError(f"{source}: unsafe SVG content near {bad.group(0)!r}")
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError as exc:
+        raise ValueError(f"{source}: not well-formed SVG ({exc})") from exc
+    if root.tag != f"{{{SVG_NS}}}svg":
+        raise ValueError(f"{source}: root element is not an SVG <svg>")
+    try:
+        vb = tuple(float(v) for v in re.split(r"[\s,]+", (root.get("viewBox") or "").strip()))
+    except ValueError as exc:
+        raise ValueError(f"{source}: invalid viewBox") from exc
+    if len(vb) != 4 or vb[2] <= 0 or vb[3] <= 0:
+        raise ValueError(f"{source}: missing or invalid viewBox")
+
+    stem = re.sub(r"[^a-z0-9]+", "-", Path(source).stem.lower()).strip("-") or "asset"
+    slug = f"{stem}-{hashlib.sha1(raw.encode('utf-8')).hexdigest()[:6]}"
+    for el in root.iter():
+        el.tag = _local(el.tag)
+        for key, value in list(el.attrib.items()):
+            del el.attrib[key]
+            key = _local(key)
+            if key == "id":
+                value = f"{slug}-{value}"
+            elif key == "href":
+                value = f"#{slug}-{value[1:]}"
+            else:
+                value = re.sub(r"url\(\s*#([^)\s]+)\s*\)", lambda m: f"url(#{slug}-{m.group(1)})", value)
+            el.set(key, value)
+    children = "".join(ET.tostring(child, encoding="unicode", short_empty_elements=True)
+                       for child in root if child.tag not in _ASSET_DROP_TAGS)
+    attrs = "".join(f' {k}="{escape(root.get(k), quote=True)}"' for k in _ASSET_ROOT_KEEP if root.get(k))
+    return SvgAsset(slug, vb, f"<g{attrs}>{children}</g>")
+
+
+def load_svg_asset(path) -> SvgAsset:
+    path = Path(path)
+    return parse_svg_asset(path.read_text(encoding="utf-8"), str(path))
+
+
+# ---------------------------------------------------------------------------
+# Icons (24x24 line glyphs; offline fallback when no vendored asset fits)
 # ---------------------------------------------------------------------------
 
 ICONS = {
@@ -306,6 +384,7 @@ class Fig:
         self.defs: dict[str, str] = {}
         self.body: list[str] = []
         self._n = 0
+        self._assets: dict[str, SvgAsset] = {}
 
     # -- plumbing ----------------------------------------------------------
     def uid(self, prefix: str) -> str:
@@ -531,6 +610,29 @@ class Fig:
         if sid not in self.defs:
             self.defs[sid] = f'<symbol id="{sid}" viewBox="0 0 24 24" class="ic">{ICONS[name]}</symbol>'
         self.add(f'<use href="#{sid}" x="{x}" y="{y}" width="{size}" height="{size}" color="{color}"/>')
+
+    def asset(self, path, x, y, size, color=INK, sw=1.5):
+        """Place a vendored open-source SVG (see svgicons.py) as a reusable symbol.
+
+        `size` is the display width and the height follows the viewBox. `sw` is the display stroke width,
+        so outline icons keep one optical weight at any size; `color` feeds currentColor. The icon gets a
+        QA box, so it is checked for overlaps and counted in coverage. Returns that box id.
+        """
+        key = str(Path(path).resolve())
+        if key not in self._assets:
+            self._assets[key] = load_svg_asset(path)
+        a = self._assets[key]
+        sid = f"as-{a.slug}"
+        vx, vy, vw, vh = a.view_box
+        if sid not in self.defs:
+            self.defs[sid] = f'<symbol id="{sid}" viewBox="{vx:g} {vy:g} {vw:g} {vh:g}">{a.body}</symbol>'
+        h = size * vh / vw
+        self.add(f'<use href="#{sid}" x="{x}" y="{y}" width="{size}" height="{h:.2f}" color="{color}" '
+                 f'stroke-width="{sw * vw / size:.3f}"/>')
+        bid = self.uid("ic")
+        self.add(f'<rect data-box="{bid}" data-kind="icon" x="{x}" y="{y}" width="{size}" height="{h:.2f}" '
+                 f'fill="none" stroke="none"/>')
+        return bid
 
     def scene(self, x, y, w, h, frame=None, marker=None):
         if "scene" not in self.defs:

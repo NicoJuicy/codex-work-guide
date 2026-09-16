@@ -3,7 +3,8 @@
 The method, module names and sketches are invented to demonstrate the figkit
 visual language (flat muted roles, bold-only-for-titles typography, serif italic
 data names, monospace tokens, trapezoid encoder, token pills, bracketed vectors,
-circled steps, key-module outline, brace, fork/merge and loss connectors).
+circled steps, key-module outline, brace, fork/merge and loss connectors, and a vendored
+Tabler outline icon placed with `asset`).
 It is not a real paper figure and shows no results. Run from any directory:
 
     python example_pipeline.py
@@ -33,6 +34,7 @@ for k, (name, sym, tag) in enumerate((("view 1", "$x^{(1)}$", "front cam"), ("vi
     y = 58 + 104 * k
     c = f.card(18, y, 176, 96, fill="#FFFFFF", stroke=HAIR)
     f.text(28, y + 19, name, size=12, weight=500, box=c)
+    f.asset(HERE / "assets" / "camera.svg", 72, y + 7, 15, color=MUTED)
     f.text(184, y + 19, sym, size=14, anchor="end", box=c)
     f.scene(28, y + 27, 84, 60)
     f.chip(120, y + 31, 64, 20, "RGB", "gray", size=10.5, fill="#FFFFFF", family="mono")

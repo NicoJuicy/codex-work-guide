@@ -28,12 +28,14 @@ QA 脚本在出现文字溢出、文字重叠、方框重叠、连线穿过文�
 - Muted flat palette with one color role per concept and a single outlined key module.
 - Typography hierarchy: bold panel titles, medium module names, serif italic data labels, monospace tokens, typeset math.
 - Shapes with meaning: token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps.
+- Open-source icons: `scripts/svgicons.py` vendors MIT Tabler outline icons and LobeHub model logos, with license files and a source ledger.
 
 - 内容准确：所有标签和数字来自原始材料，非真实数据的小图标注为示意。
 - 排版紧凑：8 px 边距、统一列网格，标题放在图注而不是画布里。
 - 低饱和平涂配色，一种颜色对应一个概念，只给最关键的模块加深色描边。
 - 字体层级：面板标题加粗、模块名中等字重、数据名用衬线斜体、token 用等宽字体、公式正确排版。
 - 图形有含义：token 胶囊、梯形编码器、方括号向量、圆柱存储、对话气泡、圆圈步骤编号。
+- 开源图标：`scripts/svgicons.py` 按需下载 MIT 许可的 Tabler outline 图标和 LobeHub 模型 logo，并附带许可证和来源记录。
 
 See `SKILL.md` for the workflow and `references/visual-contract.md` for the full contract.
 

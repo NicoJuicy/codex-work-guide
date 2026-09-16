@@ -144,6 +144,72 @@ class FigureTests(unittest.TestCase):
                 self.assertRegex(color, r"^#[0-9A-F]{6}$")
 
 
+TABLER_LIKE = """<!-- tags: [focus] -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
+  <title>target</title>
+  <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+</svg>"""
+
+GRADIENT_LOGO = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 24" height="1em" style="flex:none">
+<defs><linearGradient id="a"><stop offset="0" stop-color="#000"/></linearGradient></defs>
+<path fill="url(#a)" d="M0 0h48v24H0z"/><use href="#a"/></svg>"""
+
+
+class SvgAssetTests(unittest.TestCase):
+    def write(self, tmp: str, name: str, text: str) -> Path:
+        path = Path(tmp) / name
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_symbol_is_shared_and_stroke_is_normalized_per_use(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            icon = self.write(tmp, "target.svg", TABLER_LIKE)
+            f = figkit.Fig(200, 60)
+            box = f.asset(icon, 10, 10, 16, color="#7A5506")
+            f.asset(icon, 40, 10, 24)
+            svg = f.svg()
+        root = ET.fromstring(svg)
+        symbols = [el for el in root.iter() if el.tag.endswith("symbol")]
+        self.assertEqual(len(symbols), 1)
+        group = symbols[0][0]
+        self.assertEqual(group.get("stroke"), "currentColor")
+        self.assertIsNone(group.get("stroke-width"))
+        self.assertNotIn("<title>", svg)
+        uses = [el for el in root.iter() if el.tag.endswith("use")]
+        self.assertEqual([u.get("stroke-width") for u in uses], ["2.250", "1.500"])
+        self.assertEqual(uses[0].get("color"), "#7A5506")
+        self.assertIn(f'data-box="{box}" data-kind="icon"', svg)
+
+    def test_ids_are_namespaced_and_aspect_is_kept(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            logo = self.write(tmp, "logo.svg", GRADIENT_LOGO)
+            f = figkit.Fig(200, 60)
+            f.asset(logo, 0, 0, 40)
+            svg = f.svg()
+        ids = re.findall(r'<linearGradient id="([^"]+)"', svg)
+        self.assertEqual(len(ids), 1)
+        self.assertTrue(ids[0].startswith("logo-") and ids[0].endswith("-a"))
+        self.assertIn(f'fill="url(#{ids[0]})"', svg)
+        self.assertIn(f'href="#{ids[0]}"', svg)
+        self.assertIn('height="20.00"', svg)
+        ET.fromstring(svg)
+
+    def test_unsafe_or_invalid_svg_is_rejected(self) -> None:
+        bad = {
+            "script": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><script>alert(1)</script></svg>',
+            "handler": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onload="x()"/>',
+            "remote": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><use href="https://e.com/a.svg#b"/></svg>',
+            "css": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><style>text{fill:red}</style></svg>',
+            "entity": '<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>',
+            "no-viewbox": '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"/>',
+            "not-svg": '<html xmlns="http://www.w3.org/1999/xhtml"/>',
+        }
+        for name, text in bad.items():
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                figkit.parse_svg_asset(text, f"{name}.svg")
+
+
 class QaGateTests(unittest.TestCase):
     def report(self, **overrides) -> dict:
         base = {key: [] for key in qa.CHECKS}
