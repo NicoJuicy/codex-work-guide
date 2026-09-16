@@ -18,6 +18,19 @@ This contract turns recurring figure-review feedback into reusable, project-inde
 - Fit the canvas to the actual composition with a deliberate safety margin. Avoid large unused bands above, below, or between panels; use whitespace to separate concepts, not to fill an oversized page.
 - Align panel edges, baselines, repeated cards, and output columns. Use a consistent grid and spacing rhythm, with intentional exceptions recorded in the review log.
 
+## 2.1 Density and visual richness
+
+Sparse figures read as slides, not paper figures.
+These rules apply to both rendering tracks; `dense-svg-figures.md` gives the measured version.
+
+- Keep outer margins at 8 to 16 px and gutters between panels at about 8 to 10 px; the caption, not the canvas, carries the figure title.
+- Use three nesting levels where the story allows: stage panel, card, and chip or symbol.
+- Give every card a hook that carries meaning: notation, a technical term, a thumbnail, or a labeled schematic sketch.
+- Attach technical terms to the component they describe instead of collecting them in a distant list.
+- Treat any empty band wider than one card height as a P1 defect; fill it with meaningful content or shrink the container.
+- Reuse each semantic color across the card border, its badge, and its outgoing connector so color carries meaning.
+- Label every sketch that does not plot real data as schematic, and never plot numbers the source does not state.
+
 ## 3. Equations, symbols, and notation
 
 - Store formulas in Draw.io MathJax/LaTeX form and verify that exports show rendered glyphs, not delimiter/source text.

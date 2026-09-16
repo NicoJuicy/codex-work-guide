@@ -1,15 +1,27 @@
 ---
 name: academic-figures-drawer
-description: "Create camera-ready, editable draw.io figures from papers, method descriptions, code, or reference images. Use for ICML, NeurIPS/NIPS, ICLR, and similar ML/AI research figures: concise framework overviews, module-detail diagrams, tensor and attention flows, ablations, training/inference pipelines, and downstream-task panels. Enforce routing-first layouts with explicit orthogonal lanes, perpendicular box ports, and global zero-tolerance validation for connector-box, connector-border, connector-label, and connector-connector overlap. Optionally use image generation for a non-semantic visual concept or input/context asset, then translate the approved semantics into vector draw.io XML with preview, static validation, and screenshot-driven refinement."
+description: "Create camera-ready, editable draw.io figures from papers, method descriptions, code, or reference images. Use for ICML, NeurIPS/NIPS, ICLR, and similar ML/AI research figures: concise framework overviews, module-detail diagrams, tensor and attention flows, ablations, training/inference pipelines, and downstream-task panels. Enforce routing-first layouts with explicit orthogonal lanes, perpendicular box ports, and global zero-tolerance validation for connector-box, connector-border, connector-label, and connector-connector overlap. Optionally use image generation for a non-semantic visual concept or input/context asset, then translate the approved semantics into vector draw.io XML with preview, static validation, and screenshot-driven refinement. Also provides a dense SVG track (figkit build scripts plus headless-Chrome QA) for static, information-dense paper-style figures with typeset math, thumbnails, and schematic data sketches; use it when a figure looks sparse or has too much blank space, when the user asks for a figure that looks like a top-venue paper figure (科研绘图, 论文图, 学术示意图), or when CJK and math labels must render densely."
 ---
 
 # Academic Figures Drawer
 
-Turn a paper or description into a figure that is easy to decode at two-column size. The editable `.drawio` XML is the source of truth; PNG/SVG/PDF are derived exports. Optimize for visual hierarchy and semantic clarity, not for enumerating every standard layer.
+Turn a paper or description into a figure that is easy to decode at two-column size. Optimize for visual hierarchy, density, and semantic clarity, not for enumerating every standard layer.
+
+## Rendering tracks
+
+Two tracks share one semantic contract. Pick the track before composing.
+
+| Track | Source of truth | Use when |
+|---|---|---|
+| draw.io (default for editable deliverables) | `<figure>.drawio`; PNG/SVG/PDF are derived exports | The user or venue needs an editable source, collaborators will hand-edit, or the figure is a routing-heavy graph |
+| dense SVG | `<figure>.py` build script using `scripts/figkit.py`; SVG and 2x PNG are derived | The user wants a paper-style, information-dense static figure; the current figure looks sparse or has too much blank space; many typeset symbols, thumbnails, or schematic data sketches are needed; CJK and math labels must stay dense |
+
+For the dense SVG track, read `references/dense-svg-figures.md` first, write one build script per figure, and gate every iteration with `python <skill-dir>/scripts/qa_svg_figure.py <figure>.svg --png`. The gate must report zero overflow, collisions, box overlaps, and lines through labels, with content coverage of at least 0.55, before the PNG is visually inspected. `examples/dense-svg/example_pipeline.py` is a complete reference build. The intake, semantic brief, honesty rules, and three-cycle visual review below apply to both tracks; the draw.io XML, asset-vendoring, and routing-contract steps apply to the draw.io track.
 
 ## Operating contract
 
 - Make the story explicit: **input → transformation → contribution → output**.
+- **Density is a delivery gate on both tracks.** Fit the canvas to the composition with 8–16 px outer margins, keep the title in the caption rather than the canvas, give every card a symbol, term, thumbnail, or schematic sketch, and remove any empty band wider than one card height. On the dense SVG track, measured content coverage must be at least 0.55; on the draw.io track, record unused bands in the 9-zone inventory as P1 defects.
 - Use a concise framework view for the global story and a separate module view only when internal mechanics matter.
 - Every shape, color, icon, tensor label, and connector must have a named meaning. Delete decorative grids, token cards, or colored blocks that do not encode real data.
 - Keep real-object imagery (sensor, device, body part, waveform, application scene) in input/data/context regions only. Represent model computation with editable vector primitives.
@@ -29,7 +41,7 @@ Turn a paper or description into a figure that is easy to decode at two-column s
 3. **Multi-panel figure** — use `(a) Overall Architecture`, `(b) Proposed Module`, and optionally `(c) Training/Downstream Tasks)` when one canvas would otherwise be unreadable. Panels share the same grid and legend.
 4. **Reference replication** — treat the image as a style/layout source, not as the scientific source. Follow `references/reference-replication-protocol.md` and create the required intermediate artifacts before writing XML.
 
-Ask at most three focused questions only when the input cannot establish the diagram type, output format, or missing scientific semantics. Otherwise infer a safe default: landscape, editable draw.io plus PNG preview, English labels unless the source is Chinese.
+Ask at most three focused questions only when the input cannot establish the diagram type, output format, rendering track, or missing scientific semantics. Otherwise infer a safe default: landscape; editable draw.io plus PNG preview when editability matters, dense SVG plus PNG when the request is about paper-style visual quality or density; English labels unless the source is Chinese.
 
 ## End-to-end workflow
 
@@ -65,7 +77,7 @@ Use this default semantic palette unless the extracted contract overrides it:
 | Main data flow | none | `#263238` |
 | Auxiliary/skip/feedback | none | `#6B7280` (dashed) |
 
-Use one font family throughout (Arial/Helvetica; Noto Sans CJK for Chinese text), 1.5–2 px normal strokes, 2–3 px contribution strokes, 10–14 px body labels, 16–24 px panel/stage headings, 8 px alignment grid, and 16–28 px outer margins. Tune these values to the actual canvas and render; never shrink important text below paper-scale legibility.
+Use one font family throughout (Arial/Helvetica; Noto Sans CJK for Chinese text), 1.5–2 px normal strokes, 2–3 px contribution strokes, 10–14 px body labels, 16–24 px panel/stage headings, 8 px alignment grid, and 8–16 px outer margins. Tune these values to the actual canvas and render; never shrink important text below paper-scale legibility.
 
 Relative-scale gate: treat typography and module area as a final design constraint, not an afterthought. Before handoff, inspect a canvas-only screenshot at the intended paper width and verify that panel titles are the largest text, contribution/module titles are visibly larger than annotations, and standard helper cells are not larger than the innovation block. As a practical starting point, use ≥20 px panel titles, ≥15 px key-module labels, ≥12 px tensor annotations on a 1600–2200 px canvas, and reserve at least 80–120 px width or 120–180 px height for a key module. If the figure is dense, enlarge the important module and remove redundant words before shrinking its font. Record any intentional deviations in `visual-spec.md` and the final screenshot review.
 
@@ -96,11 +108,11 @@ Discovery is followed by a mandatory match gate. For every important component, 
 
 Use the image-generation capability only when it helps explore composition or supplies a real-world input/context asset. Prompt for a clean academic concept with **no scientific text, no equations, and no tiny unlabeled blocks**. Treat the result as a visual reference; keep the paper-derived semantic graph authoritative. Do not embed the generated bitmap as the model pipeline. If a real input asset is used, record its provenance and role in `asset-ledger.md`.
 
-Recommended concept prompt shape: “wide camera-ready scientific figure, left-to-right input–core innovation–output story, muted blue/teal/lavender/ochre palette, one restrained coral highlight for the proposed module, consistent rounded vector cards and arrows, generous whitespace, no words or equations, no decorative grids.” After generation, inspect the bitmap, write the semantic/layout inventory, and redraw the shapes and connectors in XML. If editing a user image, inspect it first and pass its local path as the image-generation reference; never use a guessed or missing path.
+Recommended concept prompt shape: “wide camera-ready scientific figure, left-to-right input–core innovation–output story, muted blue/teal/lavender/ochre palette, one restrained coral highlight for the proposed module, consistent rounded vector cards and arrows, tight well-filled composition with narrow gutters, no words or equations, no decorative grids.” After generation, inspect the bitmap, write the semantic/layout inventory, and redraw the shapes and connectors in XML. If editing a user image, inspect it first and pass its local path as the image-generation reference; never use a guessed or missing path.
 
 ### 5. Plan the composition
 
-For a framework view, choose a wide landscape canvas (roughly 1600–2200 × 850–1200 px), align stages on a single baseline, and leave whitespace around the contribution. For a module view, use a large central container with 3–6 labeled operations and small tensor-shape annotations. Use dashed containers only for meaningful groups (encoder, training-only path, memory bank, optional branch). Put the legend near a corner, never in the main flow.
+For a framework view, choose a wide landscape canvas fitted to the content (a single-row pipeline is typically 2.4:1 to 3.7:1; stack rows only for parallel variants), align stages on a shared column grid, and emphasize the contribution with area, stroke weight, and the accent color rather than surrounding whitespace. For a module view, use a large central container with 3–6 labeled operations and small tensor-shape annotations. Use dashed containers only for meaningful groups (encoder, training-only path, memory bank, optional branch). Put the legend near a corner, never in the main flow.
 
 Define each edge before authoring it: source, target, direction, relation type (data/control/feedback/update/annotation), cardinality, label, endpoint side, dedicated lane, and forbidden crossing zones. **Allocate lanes before placing boxes.** Reserve at least 8 px obstacle clearance, 12 px between parallel line centerlines, and enough channel width for both keep-out margins plus all planned lanes. If a route does not fit, move or resize the layout; never hide the defect behind a filled card, place a label on a tight connector, or trust automatic orthogonal routing.
 
@@ -160,6 +172,8 @@ SVG/PDF exports may also embed the XML. Report the `.drawio` source, latest prev
 ## Bundled resources
 
 - `references/figure-contract.md` — concise ICML/NeurIPS/ICLR visual and semantic contract.
+- `references/dense-svg-figures.md`: dense SVG track, covering sparse-versus-paper diagnosis, density contract, composition and connector grammar, honesty rules for schematic sketches, workflow, QA limits, and pitfalls.
+- `scripts/figkit.py`, `scripts/qa_svg_figure.py`, and `examples/dense-svg/`: dense SVG primitives with TeX-like math, the headless-Chrome QA gate (overflow, collisions, box overlap, lines through labels, coverage), and a complete example build.
 - `references/component-and-geometry-audit.md` — candidate-match rubric plus exact dimension, containment, clearance, and penetration contract.
 - `references/topconf-paper-style.md`, `style-extraction.md`, `reference-replication-protocol.md`, `self-supervision-and-intake.md` — paper-figure intake, reference extraction, and evidence loop.
 - `references/xml-authoring.md`, `xml-preflight.md`, `primitive-icons.md` — editable XML, layout, and icon recipes.

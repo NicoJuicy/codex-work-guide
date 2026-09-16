@@ -18,9 +18,24 @@ Academic Figures Drawer 可将论文、方法描述、代码库或视觉参考�
 - 可选的模块细节图，用于说明操作顺序、张量维度、注意力方向或特征交互
 - 对复杂图形生成 `brief.md`、`visual-spec.md`、`layout-grid.md`、`asset-ledger.md` 和 `defect-log.md` 等过程记录
 
-The `.drawio` file is the source of truth. Raster images are used only for an explicitly requested real-world input or context asset; model computation is redrawn with editable vector primitives.
+The skill has two rendering tracks with one semantic contract. On the draw.io track, the `.drawio` file is the source of truth. On the dense SVG track, a Python build script using `scripts/figkit.py` is the source of truth and the SVG and PNG are derived. Raster images are used only for an explicitly requested real-world input or context asset; model computation is drawn with vector primitives.
 
-`.drawio` 文件是唯一的可编辑源文件。真实物体或应用场景图片只应出现在明确需要的输入/上下文区域；模型计算过程应使用可编辑的矢量图形重新绘制。
+本 skill 有两条出图路线，共用同一套语义规范。draw.io 路线以 `.drawio` 为源文件。高密度 SVG 路线以调用 `scripts/figkit.py` 的 Python 构建脚本为源文件，SVG 和 PNG 由脚本生成。真实物体或应用场景图片只应出现在明确需要的输入/上下文区域；模型计算过程使用矢量图形绘制。
+
+## Dense SVG track / 高密度 SVG 路线
+
+Use this track when the figure should look like a dense top-venue paper figure: stage panels, nested cards, typeset math, thumbnails, and labeled schematic data sketches, with little unused space. It is also the better choice when a draw.io draft looks sparse, or when CJK labels and math must stay compact. Use the draw.io track when someone needs to edit the figure by hand.
+
+当图需要接近顶会论文的高密度效果时使用这条路线：分阶段面板、多层卡片、排版公式、缩略图和标注为示意的数据小图，并尽量减少留白。draw.io 草稿显得空、或中文标签和公式需要排得紧凑时，也优先用这条路线。需要他人在编辑器里手动修改时，使用 draw.io 路线。
+
+```powershell
+python <skill-dir>\examples\dense-svg\example_pipeline.py
+python <skill-dir>\scripts\qa_svg_figure.py <figure>.svg --png
+```
+
+The QA gate renders the SVG in headless Chrome, Chromium, or Edge and fails on text overflow, text collisions, overlapping boxes, lines crossing labels, or content coverage below 0.55. Set `CHROME_PATH` if the browser is not found. Read `references/dense-svg-figures.md` for the density contract, composition and connector grammar, honesty rules for schematic sketches, and common pitfalls.
+
+QA 脚本用无头 Chrome、Chromium 或 Edge 渲染 SVG，出现文字溢出、文字重叠、方框重叠、连线穿过文字，或内容覆盖率低于 0.55 时判为不通过。找不到浏览器时设置 `CHROME_PATH`。密度标准、构图与连线规则、示意图的真实性要求和常见问题见 `references/dense-svg-figures.md`。
 
 ## Installation / 安装
 
@@ -199,7 +214,9 @@ academic-figures-drawer/
 ├── README.md                        # This guide / 本使用说明
 ├── agents/openai.yaml               # UI metadata / 界面元数据
 ├── references/                      # Style, XML, and review guidance / 规范与校验文档
-├── scripts/                         # Preview, validation, layout, Tabler utilities / 工具脚本
+├── scripts/                         # Preview, validation, layout, Tabler, figkit and SVG QA utilities / 工具脚本
+├── examples/dense-svg/              # Complete dense SVG example build / 高密度 SVG 示例
+├── tests/                           # Unit tests / 单元测试
 └── data/                            # Local shape and icon indexes / 本地形状与图标索引
 ```
 
@@ -211,6 +228,6 @@ academic-figures-drawer/
 - Use vectors for model computation. / 模型计算过程使用矢量图形表达。
 - Preserve scientific semantics; never invent missing facts. / 保留科学语义，不虚构缺失事实。
 - Optimize for two-column readability, not editor zoom. / 以论文双栏尺寸的可读性为最终标准，而不是编辑器缩放效果。
-- Fit the canvas to the composition and remove redundant whitespace. / 让画布贴合实际构图，删除冗余留白。
+- Fit the canvas to the composition and remove redundant whitespace; treat an empty band wider than one card as a defect. / 让画布贴合实际构图，删除冗余留白；比一张卡片还宽的空白带视为缺陷。
 - Make every connector and symbol semantically explicit. / 确保每条连线和每个符号的语义都明确。
 - Review exported artifacts iteratively, not only the editable canvas. / 反复检查导出物，而不只检查可编辑画布。
