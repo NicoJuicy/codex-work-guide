@@ -30,6 +30,8 @@ These rules apply to both rendering tracks; `dense-svg-figures.md` gives the mea
 - Treat any empty band wider than one card height as a P1 defect; fill it with meaningful content or shrink the container.
 - Reuse each semantic color across the card border, its badge, and its outgoing connector so color carries meaning.
 - Label every sketch that does not plot real data as schematic, and never plot numbers the source does not state.
+- Avoid the machine-generated look: no container gradients, uppercase letter-spaced headers, saturated filled badges, or decorative UI icons.
+- Let typography carry hierarchy: bold only for panel titles and key words, regular or medium module names, serif italic for data names and quoted language, monospace for tokens and discrete outputs.
 
 ## 3. Equations, symbols, and notation
 

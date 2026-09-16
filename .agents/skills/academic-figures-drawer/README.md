@@ -33,9 +33,9 @@ python <skill-dir>\examples\dense-svg\example_pipeline.py
 python <skill-dir>\scripts\qa_svg_figure.py <figure>.svg --png
 ```
 
-The QA gate renders the SVG in headless Chrome, Chromium, or Edge and fails on text overflow, text collisions, overlapping boxes, lines crossing labels, or content coverage below 0.55. Set `CHROME_PATH` if the browser is not found. Read `references/dense-svg-figures.md` for the density contract, composition and connector grammar, honesty rules for schematic sketches, and common pitfalls.
+The QA gate renders the SVG in headless Chrome, Chromium, or Edge and fails on text overflow, text collisions, overlapping boxes, lines crossing labels, or content coverage below 0.55. Set `CHROME_PATH` if the browser is not found. Read `references/dense-svg-figures.md` for the density contract, the CoRL / RSS / ICRA-derived visual language (muted flat palette, weight and italic hierarchy, monospace tokens, meaningful shapes), connector grammar, honesty rules for schematic sketches, and common pitfalls.
 
-QA 脚本用无头 Chrome、Chromium 或 Edge 渲染 SVG，出现文字溢出、文字重叠、方框重叠、连线穿过文字，或内容覆盖率低于 0.55 时判为不通过。找不到浏览器时设置 `CHROME_PATH`。密度标准、构图与连线规则、示意图的真实性要求和常见问题见 `references/dense-svg-figures.md`。
+QA 脚本用无头 Chrome、Chromium 或 Edge 渲染 SVG，出现文字溢出、文字重叠、方框重叠、连线穿过文字，或内容覆盖率低于 0.55 时判为不通过。找不到浏览器时设置 `CHROME_PATH`。密度标准、参考 CoRL / RSS / ICRA 方法图整理的视觉语言（低饱和平涂配色、字重与斜体层级、等宽 token、有含义的图形）、连线规则、示意图的真实性要求和常见问题见 `references/dense-svg-figures.md`。
 
 ## Installation / 安装
 

@@ -1,11 +1,16 @@
 """figkit - primitives for dense, paper-style SVG block diagrams.
 
-Design contract (why these defaults exist):
-- Figures are read at paper-column width, so margins/gutters are tight (8/10 px)
-  and text is small but dense; titles belong in the caption, not the canvas.
-- Three nesting levels carry hierarchy: stage panel (gradient) -> white card -> chip.
-- Every card should carry a symbol, term, thumbnail or data sketch, not prose.
-- Colors are semantic roles reused across badges, borders and connectors.
+Visual language (v2), distilled from CoRL / RSS / ICRA method figures
+(pi0, OpenVLA, Octo, DP3, RT-H, YAY Robot, ReKep, RoboPoint, DexMimicGen, Hi Robot):
+- Muted flat palette: a few pastel role fills with a slightly darker stroke,
+  warm-gray neutrals, near-black thin connectors. No gradients on containers.
+- Typography carries hierarchy: bold only for panel titles and key words,
+  regular or medium weight for module names, serif italic for data names,
+  variables and quoted language, monospace for tokens, code and model output.
+- Shape carries meaning: token pills for sequences, trapezoids for encoders,
+  bracketed vectors for actions, cylinders for stored data, block arrows for
+  stage transitions, circled numbers for steps, dashed outlines for groups.
+- Dense layout: tight margins and gutters; the title lives in the caption.
 
 All geometry is explicit. `qa_svg_figure.py` renders the SVG in headless Chrome
 and gates text overflow, text collisions, box overlap, lines through labels and
@@ -24,29 +29,44 @@ import re
 from html import escape
 
 SANS = "'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Hiragino Sans GB', sans-serif"
+SERIF = "STIXGeneral, 'Times New Roman', Times, 'Songti SC', serif"
+MONO = "'SF Mono', Menlo, 'Roboto Mono', Consolas, 'PingFang SC', monospace"
 MATH = "STIXGeneral, 'STIX Two Math', 'Times New Roman', serif"
-INK = "#1F2937"
-MUTED = "#5B6573"
-FAINT = "#8A94A3"
-HAIR = "#D5DAE1"
+FAMILIES = {"sans": SANS, "serif": SERIF, "mono": MONO}
+
+INK = "#1F1F1F"
+MUTED = "#5C5C5C"
+FAINT = "#8C8C8C"
+HAIR = "#D8D4CA"
+WIRE = "#3A3A3A"
 
 
 class Role:
-    """A semantic color role: accent stroke, tint fill, deep text, panel gradient."""
+    """A semantic color role: accent stroke, tint fill, deep text, mid fill (tokens, bars)."""
 
-    def __init__(self, accent: str, tint: str, deep: str, g0: str, g1: str):
-        self.accent, self.tint, self.deep, self.g0, self.g1 = accent, tint, deep, g0, g1
+    def __init__(self, accent: str, tint: str, deep: str, mid: str):
+        self.accent, self.tint, self.deep, self.mid = accent, tint, deep, mid
+        self.g0, self.g1 = mid, tint  # kept for scripts written against v1
+
+
+def _mix(a: str, b: str, t: float) -> str:
+    ca = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
 
 
 PAL = {
-    "blue": Role("#3D6FB4", "#E6EFFA", "#1E4C8A", "#D6E4F5", "#F3F7FC"),
-    "purple": Role("#7A5BB5", "#EEE8F8", "#4B3290", "#E4DBF5", "#F7F4FC"),
-    "orange": Role("#E07A2F", "#FCEBDC", "#A24E12", "#FADFC9", "#FEF6EF"),
-    "green": Role("#3B9468", "#E2F2E9", "#1F6644", "#D3ECDD", "#F2F9F5"),
-    "red": Role("#D04A3E", "#FBE4E1", "#9E2A21", "#F8D9D5", "#FDF3F2"),
-    "amber": Role("#C98A12", "#FBF1D9", "#855A05", "#F6E8C6", "#FDF9EE"),
-    "gray": Role("#7A8594", "#EEF1F4", "#374151", "#E6EAF0", "#F7F9FB"),
+    "blue": Role("#3B8EA5", "#DCEEF3", "#1F5E70", "#A9D0DC"),  # teal: motor policy, perception
+    "purple": Role("#8870B8", "#EAE4F4", "#54408A", "#C8BAE5"),  # lavender: control, structure
+    "red": Role("#C4583C", "#F8E1D9", "#8A3421", "#E9AE9C"),  # terracotta: override, error, loss
+    "green": Role("#6F9E57", "#E3EEDA", "#3F6630", "#B9D6A6"),  # sage: accept, success, feedback
+    "amber": Role("#CF9A22", "#FBEDC6", "#7A5506", "#F3CF72"),  # ochre: reasoning model, key module
+    "orange": Role("#C9824A", "#F6E6D7", "#85522A", "#E5BE9C"),  # clay: proprioception, secondary signal
+    "gray": Role("#9C968A", "#EEECE6", "#46423B", "#D6D2C4"),  # stone: inputs, neutral containers
 }
+for _alias, _key in (("teal", "blue"), ("lavender", "purple"), ("terracotta", "red"), ("sage", "green"),
+                     ("ochre", "amber"), ("clay", "orange"), ("stone", "gray")):
+    PAL[_alias] = PAL[_key]
 
 # ---------------------------------------------------------------------------
 # Text measurement (estimate only; qa_svg_figure.py measures the real render)
@@ -163,7 +183,7 @@ def _parse(src: str, i: int = 0, upright: bool = False, stop: str | None = None)
     return atoms, i
 
 
-_REL = set("=∈≤≥→≈≠∼←")
+_REL = set("=∈∉≤≥→≈≠∼←")
 _BIN = set("+\u2212×")
 
 
@@ -224,7 +244,7 @@ def rich(s: str, size: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Icons (24x24 line glyphs; use sparingly as header markers)
+# Icons (24x24 line glyphs; use sparingly, never as the only content of a card)
 # ---------------------------------------------------------------------------
 
 ICONS = {
@@ -250,21 +270,28 @@ ICONS = {
     "eyeoff": '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/>',
     "zigzag": '<path d="M2.5 17.5l4-6 3 4 4-9 3 6 5-5"/>',
     "traj": '<circle cx="4.5" cy="18.5" r="1.8"/><circle cx="19.5" cy="5.5" r="1.8"/><path d="M6.3 17.6c3.2-1.2 3.4-5.4 6.2-6.4 2.4-.9 3.9-2.4 5.3-4.3" stroke-dasharray="2.2 2.4"/>',
+    "person": '<circle cx="12" cy="7.5" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
 }
 
+# Schematic bimanual tabletop scene: muted, photo-like tones rather than clip-art colors.
 SCENE = """<symbol id="scene" viewBox="0 0 130 96">
-<rect width="130" height="96" fill="#D8DEE4"/>
-<path d="M0 60H130V96H0z" fill="#F5F5F2"/><path d="M0 60H130" stroke="#C4C9CE"/>
-<path d="M88 55H121L118 77H91z" fill="#23272E"/><path d="M88 55H121" stroke="#454B55" stroke-width="2"/>
-<path d="M62 60l3-3h12l-3 3z" fill="#F2766D"/><rect x="62" y="60" width="12" height="11" rx="1" fill="#E2483D"/>
-<path d="M69 75l3-3h12l-3 3z" fill="#6A95EC"/><rect x="69" y="75" width="12" height="12" rx="1" fill="#3569D6"/>
+<rect width="130" height="96" fill="#D3D6D8"/>
+<rect width="130" height="20" fill="#C8CBCE"/>
+<path d="M0 58H130V96H0z" fill="#E4DCCB"/><path d="M0 58H130" stroke="#C9BCA3" stroke-width="1"/>
+<path d="M0 90H130" stroke="#D4C8B1" stroke-width="1"/>
+<ellipse cx="105" cy="78" rx="19" ry="3" fill="#000" opacity="0.14"/>
+<ellipse cx="68" cy="72" rx="8" ry="2" fill="#000" opacity="0.14"/>
+<ellipse cx="76" cy="88" rx="8" ry="2" fill="#000" opacity="0.14"/>
+<path d="M89 55H121L118 77H92z" fill="#34383E"/><path d="M89 55H121" stroke="#50555C" stroke-width="2"/>
+<path d="M62 60l3-3h12l-3 3z" fill="#CF6B5F"/><rect x="62" y="60" width="12" height="11" rx="0.8" fill="#B4473B"/>
+<path d="M70 76l3-3h12l-3 3z" fill="#6E93C8"/><rect x="70" y="76" width="12" height="12" rx="0.8" fill="#3E67A6"/>
 <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-<path d="M14-4L20 26L42 36L48 49" stroke="#8C96A1" stroke-width="9"/><path d="M14-4L20 26L42 36L48 49" stroke="#F7F8FA" stroke-width="5.5"/>
-<path d="M116-4L110 26L90 34L82 46" stroke="#8C96A1" stroke-width="9"/><path d="M116-4L110 26L90 34L82 46" stroke="#F7F8FA" stroke-width="5.5"/>
+<path d="M14-4L20 26L42 36L48 49" stroke="#9AA0A6" stroke-width="8.5"/><path d="M14-4L20 26L42 36L48 49" stroke="#ECEEEF" stroke-width="5.5"/>
+<path d="M116-4L110 26L90 34L82 46" stroke="#9AA0A6" stroke-width="8.5"/><path d="M116-4L110 26L90 34L82 46" stroke="#ECEEEF" stroke-width="5.5"/>
 </g>
-<circle cx="20" cy="26" r="3.6" fill="#5E6873"/><circle cx="42" cy="36" r="3.6" fill="#5E6873"/>
-<circle cx="110" cy="26" r="3.6" fill="#5E6873"/><circle cx="90" cy="34" r="3.6" fill="#5E6873"/>
-<path d="M45 50l1 7M51 50l-1 7M79 47l1 7M85 47l-1 7" stroke="#4A525C" stroke-width="2.4" stroke-linecap="round"/>
+<circle cx="20" cy="26" r="3.4" fill="#5C6167"/><circle cx="42" cy="36" r="3.4" fill="#5C6167"/>
+<circle cx="110" cy="26" r="3.4" fill="#5C6167"/><circle cx="90" cy="34" r="3.4" fill="#5C6167"/>
+<path d="M45 50l1 7M51 50l-1 7M79 47l1 7M85 47l-1 7" stroke="#3E4247" stroke-width="2.4" stroke-linecap="round"/>
 </symbol>"""
 
 
@@ -288,22 +315,29 @@ class Fig:
     def add(self, *parts: str) -> None:
         self.body.extend(parts)
 
-    def _marker(self, color: str, size: float = 8.0) -> str:
-        mid = f"ah{color.strip('#')}{int(size)}"
+    def _marker(self, color: str, size: float = 7.0, open_: bool = False) -> str:
+        mid = f"ah{color.strip('#')}{int(size)}{'o' if open_ else ''}"
         if mid not in self.defs:
+            shape = (
+                f'<path d="M1 1.2L9 5L1 8.8" fill="none" stroke="{color}" stroke-width="1.6" stroke-linejoin="miter"/>'
+                if open_
+                else f'<path d="M0 1L10 5L0 9z" fill="{color}"/>'
+            )
             self.defs[mid] = (
-                f'<marker id="{mid}" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="{size}" '
-                f'markerHeight="{size}" markerUnits="userSpaceOnUse" orient="auto-start-reverse">'
-                f'<path d="M0 0.6L10 5L0 9.4L2.6 5z" fill="{color}"/></marker>'
+                f'<marker id="{mid}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="{size}" '
+                f'markerHeight="{size}" markerUnits="userSpaceOnUse" orient="auto-start-reverse">{shape}</marker>'
             )
         return mid
 
     def svg(self) -> str:
         defs = "".join(self.defs.values())
         return (
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}">'
-            f"<style>text{{font-family:{SANS};fill:{INK};white-space:pre}}"
-            f".ic{{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}}</style>"
+            # Default family on the root (inherited) rather than a `text{}` CSS rule: a stylesheet rule
+            # would override per-element font-family attributes and silently drop serif/mono labels.
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}" '
+            f'font-family="{SANS}">'
+            f"<style>text{{white-space:pre;font-kerning:normal}}text:not([fill]){{fill:{INK}}}"
+            f".ic{{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}}</style>"
             f"<defs>{defs}</defs>"
             f'<rect width="{self.w}" height="{self.h}" fill="{self.bg}"/>' + "".join(self.body) + "</svg>"
         )
@@ -313,8 +347,12 @@ class Fig:
             f.write(self.svg())
 
     # -- text --------------------------------------------------------------
-    def text(self, x, y, s, size=11.5, weight=400, color=INK, anchor="start", ls=0.0, box=None, italic=False, opacity=None):
+    def text(self, x, y, s, size=11.0, weight=400, color=INK, anchor="start", ls=0.0, box=None,
+             italic=False, opacity=None, family="sans"):
+        """Rich text. family: sans (labels), serif (data names, quoted language), mono (tokens, code)."""
         attrs = f'x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{color}"'
+        if family != "sans":
+            attrs += f' font-family="{FAMILIES[family]}"'
         if weight != 400:
             attrs += f' font-weight="{weight}"'
         if anchor != "start":
@@ -330,67 +368,162 @@ class Fig:
         self.add(f"<text {attrs}>{rich(s, size)}</text>")
 
     # -- containers ----------------------------------------------------------
-    def panel(self, x, y, w, h, role, title, sub=None, dashed=False, horizontal=False, r=10, title_size=13.5):
-        """Stage panel with gradient fill and centered uppercase header. Returns content top y."""
+    def panel(self, x, y, w, h, role, title, sub=None, dashed=False, horizontal=False, r=8, title_size=14, fill=None,
+              sub_below=False):
+        """Flat stage panel with a left-aligned bold title and a regular gray subtitle on the same line
+        (or on the next line with sub_below=True for narrow panels).
+
+        Returns the content top y. `title=None` draws a headerless container.
+        """
         p = PAL[role]
-        gid = self.uid("g")
-        x2, y2 = ("1", "0") if horizontal else ("0", "1")
-        self.defs[gid] = (
-            f'<linearGradient id="{gid}" x1="0" y1="0" x2="{x2}" y2="{y2}">'
-            f'<stop offset="0" stop-color="{p.g0}"/><stop offset="1" stop-color="{p.g1}"/></linearGradient>'
-        )
         bid = self.uid("panel")
-        dash = ' stroke-dasharray="6 4"' if dashed else ""
-        fill = "#FFFFFF" if dashed else f"url(#{gid})"
-        self.add(
-            f'<rect data-box="{bid}" data-kind="panel" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" '
-            f'fill="{fill}" stroke="{p.accent}" stroke-opacity="{0.55 if dashed else 0.8}" stroke-width="1.5"{dash}/>'
-        )
+        if dashed:
+            body = f'fill="{fill or "#FFFFFF"}" stroke="{p.accent}" stroke-opacity="0.75" stroke-width="1.2" stroke-dasharray="5 4"'
+        else:
+            body = f'fill="{fill or _mix(p.tint, "#FFFFFF", 0.45)}" stroke="none"'
+        self.add(f'<rect data-box="{bid}" data-kind="panel" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" {body}/>')
         if not title:
             return y + 10
-        self.text(x + w / 2, y + 21, title, size=title_size, weight=700, color=p.deep, anchor="middle", ls=0.6, box=bid)
-        if sub:
-            self.text(x + w / 2, y + 36, sub, size=10.5, color=MUTED, anchor="middle", box=bid)
-            return y + 46
-        return y + 32
+        markup = f'<tspan font-weight="700">{rich(title, title_size)}</tspan>'
+        if sub and not sub_below:
+            markup += f'<tspan dx="9" font-size="{title_size - 3}" fill="{MUTED}">{rich(sub, title_size - 3)}</tspan>'
+        self.add(f'<text x="{x + 12}" y="{y + 22}" font-size="{title_size}" fill="{INK}" data-in="{bid}">{markup}</text>')
+        if sub and sub_below:
+            self.text(x + 12, y + 38, sub, size=title_size - 3, color=MUTED, box=bid)
+            return y + 48
+        return y + 34
 
-    def card(self, x, y, w, h, role=None, fill="#FFFFFF", sw=1.3, r=6, stack=0, topbar=False, dashed=False, stroke=None, kind="card"):
+    def card(self, x, y, w, h, role=None, fill=None, sw=1.0, r=5, stack=0, topbar=False, dashed=False,
+             stroke=None, kind="card", key=False):
+        """Pastel card: role tint fill with a slightly darker stroke. key=True draws the near-black outline
+        used for the one module the reader should find first."""
         p = PAL[role] if role else None
-        st = stroke or (p.accent if p else HAIR)
+        fl = fill or (p.tint if p else "#FFFFFF")
+        st = stroke or (INK if key else (p.accent if p else HAIR))
+        sw = 1.4 if key and sw == 1.0 else sw
         cid = self.uid("c")
-        dash = ' stroke-dasharray="5 3"' if dashed else ""
+        dash = ' stroke-dasharray="4 3"' if dashed else ""
         for k in range(stack, 0, -1):
             o = 4 * k
-            self.add(f'<rect x="{x + o}" y="{y - o}" width="{w}" height="{h}" rx="{r}" fill="#FFFFFF" stroke="{st}" stroke-opacity="0.55" stroke-width="{sw}"/>')
-        self.add(f'<rect data-box="{cid}" data-kind="{kind}" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{fill}" stroke="{st}" stroke-width="{sw}"{dash}/>')
+            self.add(f'<rect x="{x + o}" y="{y - o}" width="{w}" height="{h}" rx="{r}" fill="{_mix(fl, "#FFFFFF", 0.35)}" '
+                     f'stroke="{st}" stroke-opacity="0.45" stroke-width="{sw}"/>')
+        self.add(f'<rect data-box="{cid}" data-kind="{kind}" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" '
+                 f'fill="{fl}" stroke="{st}" stroke-width="{sw}"{dash}/>')
         if topbar and p:
-            self.add(
-                f'<path d="M{x} {y + r}A{r} {r} 0 0 1 {x + r} {y}H{x + w - r}A{r} {r} 0 0 1 {x + w} {y + r}" '
-                f'fill="none" stroke="{p.accent}" stroke-width="4"/>'
-            )
+            self.add(f'<path d="M{x + r} {y + 1.5}H{x + w - r}" stroke="{p.accent}" stroke-width="3" stroke-linecap="round"/>')
         return cid
 
-    def chip(self, x, y, w, h, s, role=None, size=11, fill=None, color=None, weight=400, r=4, stroke=None, dashed=False):
+    def chip(self, x, y, w, h, s, role=None, size=10.5, fill=None, color=None, weight=400, r=3, stroke=None,
+             dashed=False, family="sans", italic=False):
         p = PAL[role] if role else None
-        cid = self.card(x, y, w, h, fill=fill or (p.tint if p else "#FFFFFF"), stroke=stroke or (p.accent if p else HAIR), sw=1.1, r=r, dashed=dashed, kind="chip")
-        self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, weight=weight, color=color or (p.deep if p else INK), anchor="middle", box=cid)
+        cid = self.card(x, y, w, h, fill=fill or (p.tint if p else "#FFFFFF"), stroke=stroke or (p.mid if p else HAIR),
+                        sw=0.9, r=r, dashed=dashed, kind="chip")
+        self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, weight=weight, color=color or (p.deep if p else INK),
+                  anchor="middle", box=cid, family=family, italic=italic)
         return cid
 
-    def badge(self, x, y, s, role, size=10.5, h=18, w=None):
+    def badge(self, x, y, s, role, size=10, h=17, w=None):
+        """Quiet tag for a key number: tint fill, bold deep text, no outline."""
         p = PAL[role]
         w = w or text_w(s, size, bold=True) + 12
         cid = self.uid("b")
-        self.add(f'<rect data-box="{cid}" data-kind="chip" x="{x}" y="{y}" width="{w:.1f}" height="{h}" rx="{h / 2}" fill="{p.accent}"/>')
-        self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, weight=700, color="#FFFFFF", anchor="middle", box=cid)
+        self.add(f'<rect data-box="{cid}" data-kind="chip" x="{x}" y="{y}" width="{w:.1f}" height="{h}" rx="3" fill="{p.tint}" '
+                 f'stroke="{p.mid}" stroke-width="0.8"/>')
+        self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, weight=700, color=p.deep, anchor="middle", box=cid)
         return w
 
-    def pill(self, cx, cy, s, role="gray", size=10.5, h=20, fill="#FFFFFF", weight=400):
+    def pill(self, cx, cy, s, role="gray", size=11, h=21, fill="#FFFFFF", weight=400, italic=True, family="serif"):
+        """Label that sits on a connector: white knock-out background, serif italic text."""
         p = PAL[role]
-        w = text_w(s, size) + 18
+        w = text_w(s, size) + 12
         cid = self.uid("p")
-        self.add(f'<rect data-box="{cid}" data-kind="chip" x="{cx - w / 2:.1f}" y="{cy - h / 2}" width="{w:.1f}" height="{h}" rx="{h / 2}" fill="{fill}" stroke="{p.accent}" stroke-width="1.1"/>')
-        self.text(cx, cy + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid, weight=weight)
+        self.add(f'<rect data-box="{cid}" data-kind="chip" x="{cx - w / 2:.1f}" y="{cy - h / 2}" width="{w:.1f}" height="{h}" '
+                 f'rx="3" fill="{fill}"/>')
+        self.text(cx, cy + size * 0.34, s, size=size, color=p.deep, anchor="middle", box=cid, weight=weight,
+                  italic=italic, family=family)
         return w
+
+    def step(self, cx, cy, n, r=7.5, color=INK):
+        """Circled step number (thin outline)."""
+        self.add(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="#FFFFFF" stroke="{color}" stroke-width="1"/>')
+        self.text(cx, cy + 3.6, str(n), size=10, color=color, anchor="middle")
+
+    # -- shapes with meaning ----------------------------------------------------
+    def tokens(self, x, y, n, role, w=16, h=8, gap=4, lit=None, dashed=False, to_role=None):
+        """Row of token pills (a sequence). `lit` pills use the role color, the rest stay neutral;
+        `to_role` blends the fill across the row."""
+        p = PAL[role]
+        q = PAL[to_role] if to_role else None
+        for i in range(n):
+            on = lit is None or i < lit
+            fillc = (_mix(p.mid, q.mid, i / max(1, n - 1)) if q else p.mid) if on else "#EEECE6"
+            st = p.accent if on else "#C9C5BA"
+            dash = ' stroke-dasharray="2 1.5"' if dashed else ""
+            self.add(f'<rect x="{x + i * (w + gap):.1f}" y="{y}" width="{w}" height="{h}" rx="{h / 2}" fill="{fillc}" '
+                     f'stroke="{st}" stroke-width="0.9"{dash}/>')
+        return n * w + (n - 1) * gap
+
+    def trapezoid(self, x, y, w, h, role, s=None, size=12, inset=0.16, wide_bottom=True, family="sans", italic=False):
+        p = PAL[role]
+        d = w * inset
+        pts = (f"{x + d},{y} {x + w - d},{y} {x + w},{y + h} {x},{y + h}" if wide_bottom
+               else f"{x},{y} {x + w},{y} {x + w - d},{y + h} {x + d},{y + h}")
+        cid = self.uid("t")
+        self.add(f'<polygon data-box="{cid}" data-kind="card" points="{pts}" fill="{p.tint}" stroke="{p.accent}" stroke-width="1"/>')
+        if s:
+            self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid,
+                      family=family, italic=italic)
+        return cid
+
+    def bracket(self, x, y, w, h, color=INK, sw=1.1, tick=5):
+        """Square brackets around a region (a vector or a grouped output)."""
+        self.add(f'<path d="M{x + tick} {y}H{x}V{y + h}H{x + tick}M{x + w - tick} {y}H{x + w}V{y + h}H{x + w - tick}" '
+                 f'fill="none" stroke="{color}" stroke-width="{sw}"/>')
+
+    def cylinder(self, x, y, w, h, role, s=None, size=11, family="serif", italic=True):
+        """Stored data (history, dataset)."""
+        p = PAL[role]
+        ry = min(6.0, h * 0.18)
+        cid = self.uid("cy")
+        self.add(
+            f'<path data-box="{cid}" data-kind="card" d="M{x} {y + ry}A{w / 2} {ry} 0 0 1 {x + w} {y + ry}V{y + h - ry}'
+            f'A{w / 2} {ry} 0 0 1 {x} {y + h - ry}Z" fill="{p.tint}" stroke="{p.accent}" stroke-width="1"/>'
+        )
+        self.add(f'<path d="M{x} {y + ry}A{w / 2} {ry} 0 0 0 {x + w} {y + ry}" fill="none" stroke="{p.accent}" stroke-width="1"/>')
+        if s:
+            self.text(x + w / 2, y + h / 2 + ry / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid,
+                      family=family, italic=italic)
+        return cid
+
+    def block_arrow(self, x1, y1, x2, y2, width=12, color="#D6D2C4", head=None):
+        """Thick chevron arrow for a stage transition (horizontal or vertical)."""
+        head = head or width * 1.25
+        if abs(y2 - y1) < 1e-6:
+            s = 1 if x2 > x1 else -1
+            xb = x2 - s * head
+            pts = f"{x1},{y1 - width / 2} {xb},{y1 - width / 2} {xb},{y1 - width} {x2},{y1} {xb},{y1 + width} {xb},{y1 + width / 2} {x1},{y1 + width / 2}"
+        else:
+            s = 1 if y2 > y1 else -1
+            yb = y2 - s * head
+            pts = f"{x1 - width / 2},{y1} {x1 - width / 2},{yb} {x1 - width},{yb} {x1},{y2} {x1 + width},{yb} {x1 + width / 2},{yb} {x1 + width / 2},{y1}"
+        self.add(f'<polygon points="{pts}" fill="{color}"/>')
+
+    def bubble(self, x, y, w, h, s, role="gray", size=12, tail="left", family="serif", italic=True, weight=400, stroke=None):
+        """Speech bubble for language (instructions, model utterances)."""
+        p = PAL[role]
+        r = 8
+        cy = y + h / 2
+        if tail == "left":
+            d = (f"M{x + r} {y}H{x + w - r}A{r} {r} 0 0 1 {x + w} {y + r}V{y + h - r}A{r} {r} 0 0 1 {x + w - r} {y + h}"
+                 f"H{x + r}A{r} {r} 0 0 1 {x} {y + h - r}V{cy + 5}L{x - 9} {cy}L{x} {cy - 5}V{y + r}A{r} {r} 0 0 1 {x + r} {y}Z")
+        else:
+            d = (f"M{x + r} {y}H{x + w - r}A{r} {r} 0 0 1 {x + w} {y + r}V{y + h - r}A{r} {r} 0 0 1 {x + w - r} {y + h}"
+                 f"H{x + r}A{r} {r} 0 0 1 {x} {y + h - r}V{y + r}A{r} {r} 0 0 1 {x + r} {y}Z")
+        cid = self.uid("bb")
+        self.add(f'<path data-box="{cid}" data-kind="card" d="{d}" fill="#FFFFFF" stroke="{stroke or p.accent}" stroke-width="1.1"/>')
+        self.text(x + w / 2, cy + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid, family=family,
+                  italic=italic, weight=weight)
+        return cid
 
     # -- glyphs --------------------------------------------------------------
     def icon(self, name, x, y, size, color):
@@ -404,16 +537,17 @@ class Fig:
             self.defs["scene"] = SCENE
         cid = self.uid("s")
         clip = self.uid("clip")
-        self.defs[clip] = f'<clipPath id="{clip}"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3"/></clipPath>'
+        self.defs[clip] = f'<clipPath id="{clip}"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="2"/></clipPath>'
         self.add(f'<g clip-path="url(#{clip})"><use href="#scene" x="{x}" y="{y}" width="{w}" height="{h}" preserveAspectRatio="xMidYMid slice"/></g>')
-        self.add(f'<rect data-box="{cid}" data-kind="thumb" x="{x}" y="{y}" width="{w}" height="{h}" rx="3" fill="none" stroke="{frame or HAIR}" stroke-width="1.6"/>')
+        self.add(f'<rect data-box="{cid}" data-kind="thumb" x="{x}" y="{y}" width="{w}" height="{h}" rx="2" fill="none" '
+                 f'stroke="{frame or "#B9B4A8"}" stroke-width="1"/>')
         return cid
 
-    def arrow(self, d, color=INK, sw=1.6, dashed=False, start=False, end=True, head=8.0, opacity=None):
-        mk = self._marker(color, head)
+    def arrow(self, d, color=WIRE, sw=1.3, dashed=False, start=False, end=True, head=7.0, opacity=None, open_=False):
+        mk = self._marker(color, head, open_)
         attrs = f'd="{d}" fill="none" stroke="{color}" stroke-width="{sw}" stroke-linecap="round" stroke-linejoin="round"'
         if dashed:
-            attrs += ' stroke-dasharray="5 3.5"'
+            attrs += ' stroke-dasharray="4 3"'
         if end:
             attrs += f' marker-end="url(#{mk})"'
         if start:
@@ -422,10 +556,10 @@ class Fig:
             attrs += f' stroke-opacity="{opacity}"'
         self.add(f"<path {attrs}/>")
 
-    def dot(self, x, y, color=INK, r=2.8):
+    def dot(self, x, y, color=WIRE, r=2.4):
         self.add(f'<circle cx="{x}" cy="{y}" r="{r}" fill="{color}"/>')
 
-    def brace(self, x, y1, y2, color=FAINT, depth=12, sw=1.6):
+    def brace(self, x, y1, y2, color=FAINT, depth=12, sw=1.2):
         """Right-pointing curly brace spanning y1..y2 at x (opens to the left)."""
         m = (y1 + y2) / 2
         d = depth / 2
@@ -440,29 +574,30 @@ class Fig:
         self.add(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{sw}"{dash}/>')
 
     # -- data sketches -------------------------------------------------------
-    def bars(self, x, y, w, h, values, color, gap=2.0, base=HAIR, box=None):
+    def bars(self, x, y, w, h, values, color, gap=2.0, base="#B9B4A8", box=None):
         n = len(values)
         bw = (w - gap * (n - 1)) / n
         self.line(f"M{x} {y + h}H{x + w}", base, 1)
         for i, v in enumerate(values):
             bh = max(1.5, v * h)
-            self.add(f'<rect x="{x + i * (bw + gap):.1f}" y="{y + h - bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="1" fill="{color}" opacity="{0.55 + 0.45 * v:.2f}"/>')
+            self.add(f'<rect x="{x + i * (bw + gap):.1f}" y="{y + h - bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" '
+                     f'fill="{color}" opacity="{0.5 + 0.4 * v:.2f}"/>')
 
-    def curves(self, x, y, w, h, colors, seed=1.0, grid=True, n=60):
+    def curves(self, x, y, w, h, colors, seed=1.0, grid=True, n=60, sw=1.4):
         if grid:
             for k in range(1, 4):
-                self.line(f"M{x} {y + h * k / 4:.1f}H{x + w}", "#E6EAF0", 0.8)
-            self.line(f"M{x} {y}V{y + h}H{x + w}", "#AAB2BE", 1.0)
+                self.line(f"M{x} {y + h * k / 4:.1f}H{x + w}", "#ECEAE4", 0.8)
+            self.line(f"M{x} {y}V{y + h}H{x + w}", "#9C968A", 0.9)
         for j, c in enumerate(colors):
             pts = []
             for i in range(n + 1):
                 t = i / n
                 v = 0.5 + 0.28 * math.sin(2.2 * t * math.pi + seed * (j + 1) * 1.7) + 0.12 * math.sin(5.3 * t * math.pi + j * 0.9 + seed)
                 pts.append(f"{x + t * w:.1f} {y + (1 - v) * h:.1f}")
-            self.add(f'<path d="M{"L".join(pts)}" fill="none" stroke="{c}" stroke-width="1.5" stroke-linecap="round"/>')
+            self.add(f'<path d="M{"L".join(pts)}" fill="none" stroke="{c}" stroke-width="{sw}" stroke-linecap="round"/>')
 
-    def strip(self, x, y, w, h, n, lit, color, off="#E6EAF0", gap=1.0):
+    def strip(self, x, y, w, h, n, lit, color, off="#ECEAE4", gap=1.0):
         cw = (w - gap * (n - 1)) / n
         for i in range(n):
             fill = color if i < lit else off
-            self.add(f'<rect x="{x + i * (cw + gap):.2f}" y="{y}" width="{cw:.2f}" height="{h}" rx="0.8" fill="{fill}"/>')
+            self.add(f'<rect x="{x + i * (cw + gap):.2f}" y="{y}" width="{cw:.2f}" height="{h}" rx="0.6" fill="{fill}"/>')
