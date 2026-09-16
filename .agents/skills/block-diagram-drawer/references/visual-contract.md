@@ -40,7 +40,8 @@ Compare the draft against strong paper figures on these axes before changing any
 - Outer margin is 8 px; gutter between panels is 8 to 10 px; card padding is 6 to 12 px.
 - No empty band wider than one card height may remain inside a panel; fill it with a meaningful sketch, notation, or attached term, or shrink the panel.
 - Do not put the figure title or a long subtitle inside the canvas; the paper caption carries the title.
-- Prefer a wide aspect ratio for pipelines (about 2.4:1 to 3.7:1 at 1400 px width) and stack rows only when the story has parallel variants.
+- Prefer a wide aspect ratio for pipelines (about 2.4:1 to 3.7:1 at 1400 px width) and stack rows only when the story has parallel variants or a layered hierarchy with vertical cross-layer arrows.
+- Panel title rows are shared space: cards beside the title may start at its top, and loop lanes with their labels may run through the row.
 - Shrinking fonts is the last resort; first remove redundant words, then tighten boxes to their content, then reflow.
 
 ## 4. Visual language
@@ -159,6 +160,8 @@ Link every text element to its container with `box=` so overflow is checked; fre
 - Heuristic text widths are only estimates; accept a layout only after the browser measurement passes.
 - A `text` element with `text-anchor="middle"` stays centered only while its tspans use relative `dy`/`dx`; absolute `x` on a tspan starts a new chunk.
 - Serif math glyphs have tall bounding boxes; give large focal symbols about 1.2 times their font size of vertical clearance, and give connector labels a knock-out at least 21 px high.
+- A subscripted symbol such as $t_1$ or $\pi_{0.5}$ at 11.5 to 12 px overflows an 18 px chip; use chips at least 20 px tall.
+- A connector that must cross another connector should break the secondary (dashed feedback) line for a few pixels at the crossing rather than hide the primary flow.
 - Write primes as `a'_t` rather than as a superscript command, so the subscript attaches correctly.
 - Unbraced scripts such as `E_\theta` must consume the whole command; figkit handles this, and a regression test covers it.
 - Card-bottom chip rows reserve space; sketches placed above them must end at least 6 px earlier.

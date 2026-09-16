@@ -36,7 +36,8 @@ When the user asks for a more detailed figure, add only structure grounded in ma
 
 ### 2. Plan the grid
 
-- Prefer one wide row of stage panels (about 2.4:1 to 3.7:1 at 1400 px width); stack rows only for parallel variants such as "Direct" versus "Hybrid".
+- Prefer one wide row of stage panels (about 2.4:1 to 3.7:1 at 1400 px width); stack rows only for parallel variants such as "Direct" versus "Hybrid", or for a layered hierarchy (for example reasoning over world models over low-level control) whose cross-layer arrows run vertically.
+- In a layered figure, give each layer a full-width band and place the cards of adjacent layers so every cross-layer arrow is a straight vertical segment through both endpoints.
 - Use 8 px outer margins and 8 to 10 px gutters, and share column positions across rows so equivalent stages align.
 - Keep the figure title out of the canvas; it belongs in the caption.
 - Write the grid down as numbers (panel x-ranges, row y-ranges, card rectangles) before writing code.
@@ -82,6 +83,16 @@ Place an icon with `f.asset(HERE / "assets" / "target.svg", x, y, 16, color=A.de
 - Use a `lobe` logo only for the exact model or provider the figure names, prefer the mono variant, and keep it smaller than the module name.
 - `get` copies the family license and records the source in `assets/ASSETS.md`; ship both with the figure.
 - Without network access, fall back to figkit's built-in `icon()` glyphs and say so.
+
+## Compaction requests
+
+When the user asks for a more compact figure, keep the content inventory and the column grid, archive the current version, and reclaim height before width.
+
+- Tighten card heights to their content and shorten list rows (for example from 25 px to 22 px).
+- Share bands: route feedback lanes and their labels through panel title rows, and start cards beside a panel title at the title's top instead of below it.
+- Put connector labels in bands that already exist, such as the strip above a row of cards, instead of adding a label row.
+- Join short attribute lists into one line and shrink sketch frames before shrinking any font.
+- Rerun the gate after every step; math with subscripts needs chips at least 20 px tall.
 
 ## Restyle requests
 
