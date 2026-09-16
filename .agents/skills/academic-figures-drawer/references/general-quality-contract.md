@@ -21,7 +21,7 @@ This contract turns recurring figure-review feedback into reusable, project-inde
 ## 2.1 Density and visual richness
 
 Sparse figures read as slides, not paper figures.
-These rules apply to both rendering tracks; `dense-svg-figures.md` gives the measured version.
+The `block-diagram-drawer` skill checks the same rules automatically for code-generated SVG figures.
 
 - Keep outer margins at 8 to 16 px and gutters between panels at about 8 to 10 px; the caption, not the canvas, carries the figure title.
 - Use three nesting levels where the story allows: stage panel, card, and chip or symbol.

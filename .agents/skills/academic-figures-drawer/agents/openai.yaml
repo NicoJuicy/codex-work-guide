@@ -1,4 +1,4 @@
 interface:
   display_name: "Academic Figures Drawer"
   short_description: "Create editable camera-ready academic figures"
-  default_prompt: "Use $academic-figures-drawer to turn this paper or method description into a clear, camera-ready editable figure. Keep scientific logic editable, use Tabler outline as the default external icon family, and enforce globally audited zero-overlap orthogonal connector routing. When the request is about dense paper-style visual quality rather than editability, use the dense SVG track with figkit and the headless-Chrome QA gate."
+  default_prompt: "Use $academic-figures-drawer to turn this paper or method description into a clear, camera-ready editable figure. Keep scientific logic editable, use Tabler outline as the default external icon family, and enforce globally audited zero-overlap orthogonal connector routing."

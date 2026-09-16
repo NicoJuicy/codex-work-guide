@@ -1,27 +1,20 @@
 ---
 name: academic-figures-drawer
-description: "Create camera-ready, editable draw.io figures from papers, method descriptions, code, or reference images. Use for ICML, NeurIPS/NIPS, ICLR, and similar ML/AI research figures: concise framework overviews, module-detail diagrams, tensor and attention flows, ablations, training/inference pipelines, and downstream-task panels. Enforce routing-first layouts with explicit orthogonal lanes, perpendicular box ports, and global zero-tolerance validation for connector-box, connector-border, connector-label, and connector-connector overlap. Optionally use image generation for a non-semantic visual concept or input/context asset, then translate the approved semantics into vector draw.io XML with preview, static validation, and screenshot-driven refinement. Also provides a dense SVG track (figkit build scripts plus headless-Chrome QA) for static, information-dense paper-style figures with typeset math, thumbnails, and schematic data sketches; use it when a figure looks sparse or has too much blank space, when the user asks for a figure that looks like a top-venue paper figure (科研绘图, 论文图, 学术示意图), or when CJK and math labels must render densely."
+description: "Create camera-ready, editable draw.io figures from papers, method descriptions, code, or reference images. Use for ICML, NeurIPS/NIPS, ICLR, and similar ML/AI research figures: concise framework overviews, module-detail diagrams, tensor and attention flows, ablations, training/inference pipelines, and downstream-task panels. Enforce routing-first layouts with explicit orthogonal lanes, perpendicular box ports, and global zero-tolerance validation for connector-box, connector-border, connector-label, and connector-connector overlap. Optionally use image generation for a non-semantic visual concept or input/context asset, then translate the approved semantics into vector draw.io XML with preview, static validation, and screenshot-driven refinement. When an editable source is not needed and the user wants a dense static paper-style figure, use block-diagram-drawer instead."
 ---
 
 # Academic Figures Drawer
 
-Turn a paper or description into a figure that is easy to decode at two-column size. Optimize for visual hierarchy, density, and semantic clarity, not for enumerating every standard layer.
+Turn a paper or description into a figure that is easy to decode at two-column size. The editable `.drawio` XML is the source of truth; PNG/SVG/PDF are derived exports. Optimize for visual hierarchy, density, and semantic clarity, not for enumerating every standard layer.
 
-## Rendering tracks
+## Related skill
 
-Two tracks share one semantic contract. Pick the track before composing.
-
-| Track | Source of truth | Use when |
-|---|---|---|
-| draw.io (default for editable deliverables) | `<figure>.drawio`; PNG/SVG/PDF are derived exports | The user or venue needs an editable source, collaborators will hand-edit, or the figure is a routing-heavy graph |
-| dense SVG | `<figure>.py` build script using `scripts/figkit.py`; SVG and 2x PNG are derived | The user wants a paper-style, information-dense static figure; the current figure looks sparse or has too much blank space; many typeset symbols, thumbnails, or schematic data sketches are needed; CJK and math labels must stay dense |
-
-For the dense SVG track, read `references/dense-svg-figures.md` first, write one build script per figure, and gate every iteration with `python <skill-dir>/scripts/qa_svg_figure.py <figure>.svg --png`. The gate must report zero overflow, collisions, box overlaps, and lines through labels, with content coverage of at least 0.55, before the PNG is visually inspected. `examples/dense-svg/example_pipeline.py` is a complete reference build. The default visual language follows CoRL, RSS, and ICRA method figures: flat muted role fills with slightly darker strokes, near-black thin connectors, bold only for panel titles and key words, serif italic for data names and language, monospace for tokens and discrete outputs, and shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, circled steps); avoid gradients, uppercase tracked headers, saturated filled badges, and decorative UI icons. The intake, semantic brief, honesty rules, and three-cycle visual review below apply to both tracks; the draw.io XML, asset-vendoring, and routing-contract steps apply to the draw.io track.
+This skill produces editable draw.io figures. When the user wants a dense, paper-style static figure and does not need an editable `.drawio` source, use `block-diagram-drawer` instead: it builds the figure as code-generated SVG, follows a CoRL / RSS / ICRA visual contract, and gates every render with a headless-Chrome QA check. The density and visual-richness rules in `references/general-quality-contract.md` apply to both skills.
 
 ## Operating contract
 
 - Make the story explicit: **input → transformation → contribution → output**.
-- **Density is a delivery gate on both tracks.** Fit the canvas to the composition with 8–16 px outer margins, keep the title in the caption rather than the canvas, give every card a symbol, term, thumbnail, or schematic sketch, and remove any empty band wider than one card height. On the dense SVG track, measured content coverage must be at least 0.55; on the draw.io track, record unused bands in the 9-zone inventory as P1 defects.
+- **Density is a delivery gate.** Fit the canvas to the composition with 8–16 px outer margins, keep the title in the caption rather than the canvas, give every card a symbol, term, thumbnail, or schematic sketch, and remove any empty band wider than one card height. Record every unused band in the 9-zone inventory as a P1 defect.
 - Use a concise framework view for the global story and a separate module view only when internal mechanics matter.
 - Every shape, color, icon, tensor label, and connector must have a named meaning. Delete decorative grids, token cards, or colored blocks that do not encode real data.
 - Keep real-object imagery (sensor, device, body part, waveform, application scene) in input/data/context regions only. Represent model computation with editable vector primitives.
@@ -41,7 +34,7 @@ For the dense SVG track, read `references/dense-svg-figures.md` first, write one
 3. **Multi-panel figure** — use `(a) Overall Architecture`, `(b) Proposed Module`, and optionally `(c) Training/Downstream Tasks)` when one canvas would otherwise be unreadable. Panels share the same grid and legend.
 4. **Reference replication** — treat the image as a style/layout source, not as the scientific source. Follow `references/reference-replication-protocol.md` and create the required intermediate artifacts before writing XML.
 
-Ask at most three focused questions only when the input cannot establish the diagram type, output format, rendering track, or missing scientific semantics. Otherwise infer a safe default: landscape; editable draw.io plus PNG preview when editability matters, dense SVG plus PNG when the request is about paper-style visual quality or density; English labels unless the source is Chinese.
+Ask at most three focused questions only when the input cannot establish the diagram type, output format, or missing scientific semantics. Otherwise infer a safe default: landscape, editable draw.io plus PNG preview, English labels unless the source is Chinese. If the request is only about a dense static paper-style look and nobody needs to edit the source, suggest `block-diagram-drawer`.
 
 ## End-to-end workflow
 
@@ -172,8 +165,6 @@ SVG/PDF exports may also embed the XML. Report the `.drawio` source, latest prev
 ## Bundled resources
 
 - `references/figure-contract.md` — concise ICML/NeurIPS/ICLR visual and semantic contract.
-- `references/dense-svg-figures.md`: dense SVG track, covering sparse-versus-paper diagnosis, density contract, composition and connector grammar, honesty rules for schematic sketches, workflow, QA limits, and pitfalls.
-- `scripts/figkit.py`, `scripts/qa_svg_figure.py`, and `examples/dense-svg/`: dense SVG primitives with TeX-like math, the headless-Chrome QA gate (overflow, collisions, box overlap, lines through labels, coverage), and a complete example build.
 - `references/component-and-geometry-audit.md` — candidate-match rubric plus exact dimension, containment, clearance, and penetration contract.
 - `references/topconf-paper-style.md`, `style-extraction.md`, `reference-replication-protocol.md`, `self-supervision-and-intake.md` — paper-figure intake, reference extraction, and evidence loop.
 - `references/xml-authoring.md`, `xml-preflight.md`, `primitive-icons.md` — editable XML, layout, and icon recipes.
