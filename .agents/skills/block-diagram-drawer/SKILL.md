@@ -56,7 +56,8 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - Emphasize one key module, either with a stronger fill or with `key=True`; do not outline a whole path.
 - Label edges where they are drawn (relation names in mono, flow labels in serif italic) and keep any legend to four entries in a corner.
 - Draw every arrow with `f.connect`, `f.bus`, `f.arc` or `f.route` so both ends sit exactly on a port: `connect` for a flow (straight when the ports line up, an elbow otherwise, `ta=None` to meet a short card head-on), `bus` for one source feeding several targets, `arc` for a short feedback bend, `route` for a loop that wraps around content through a reserved lane.
-- Reach for `f.zone` when a row has no card of its own, and keep hand-typed paths for wires that start at a brace, a sketch or a circled step.
+- Reach for `f.zone` when a row has no card of its own, and keep hand-typed paths for wires that start at a brace, a sketch or a circled step; anchor even those on `f.port` so both ends land on a real edge.
+- A long feedback wire needs a lane: reserve a gutter between columns or run it through a panel title row, and give its label a knock-out (`knockout=True`) so it sits on the wire instead of beside a card.
 - Curves and straight lines are both fine, but no wire may overlap another, cross a card it does not attach to, or stop short of its box.
 - Use bold only for panel titles and key words, medium weight for module names, serif italic for data names and language, monospace for tokens, identifiers and code, and `$...$` for every symbol.
 - Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces, block arrows between stages) and vendored open-source icons for recognizable objects and named products.
@@ -65,7 +66,7 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 ### 4. Gate, look, fix, repeat
 
 Run the QA gate after every edit, and add `--strict-tidy` for any figure that goes into a paper.
-By default it fails on overflow, collisions, box overlaps, lines through labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget (1 word per 10,000 px², about 70 words at 1400 by 500), and coverage below 0.40.
+By default it fails on overflow, collisions, box overlaps, labels hidden under a later card, lines through labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget (1 word per 10,000 px², about 70 words at 1400 by 500), and coverage below 0.40.
 When text does not fit, cut words and move explanations to the caption first, then enlarge boxes or the canvas; never shrink type below `f.fs("min")`.
 Relax a limit only on purpose (`--words-per-10k`, `--max-words`, `--min-coverage`), and report the measured value and the reason to the user.
 The `tidy` block measures what a reader calls tidy: `--strict-tidy` fails on connector ends that miss their box (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), overlapping wires (`edgeOverlap`), peer boxes that nearly line up but miss (`misalign`), and off-center chip labels (`offCenter`).

@@ -7,6 +7,7 @@ acceptance. Reported checks:
 - overflow:   text escaping its container (text[data-in] -> [data-box]) or the canvas
 - collide:    text/text bounding-box collisions
 - boxOverlap: sibling cards/chips/thumbnails that partially overlap
+- textCovered: a label hidden under a card or chip drawn after it
 - lineText:   connector or curve strokes crossing a label that no opaque,
               later-drawn container covers
 - smallText:  labels that would print below --min-pt (6 pt) at the figure's print
@@ -51,7 +52,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-CHECKS = ("overflow", "collide", "boxOverlap", "lineText", "smallText", "longText")
+CHECKS = ("overflow", "collide", "boxOverlap", "textCovered", "lineText", "smallText", "longText")
 
 _CANDIDATES = (
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -101,6 +102,18 @@ for(let i=0;i<solid.length;i++)for(let j=i+1;j<solid.length;j++){
   const ix=Math.min(a.x+a.w,c.x+c.w)-Math.max(a.x,c.x), iy=Math.min(a.y+a.h,c.y+c.h)-Math.max(a.y,c.y);
   if(ix>0.5&&iy>0.5) boxOverlap.push([a.kind+':'+[a.x,a.y].map(Math.round),c.kind+':'+[c.x,c.y].map(Math.round)]);
 }
+// a label hidden under a later opaque card or chip: the gate must catch what the eye catches
+const textCovered=[];
+textEls.forEach((t,i)=>{const b=texts[i]; if(!b.w) return;
+  Object.values(boxes).forEach(B=>{ if(B.kind==='panel'||B.id===t.dataset.in) return;
+    const el=svg.querySelector('[data-box="'+B.id+'"]');
+    if(!el||getComputedStyle(el).fill==='none') return;
+    if(!(t.compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING)) return;
+    if(el.contains(t)) return;
+    const ix=Math.min(b.x+b.w,B.x+B.w)-Math.max(b.x,B.x), iy=Math.min(b.y+b.h,B.y+B.h)-Math.max(b.y,B.y);
+    if(ix>1.5&&iy>b.h*0.45)
+      textCovered.push({s:b.s,box:B.kind+':'+Math.round(B.x)+','+Math.round(B.y),
+                        share:+((ix*iy)/(b.w*b.h)).toFixed(2)});});});
 const lineText=[];
 const strokes=[...svg.querySelectorAll('path,line,polyline')].filter(e=>!e.closest('symbol,marker,clipPath,defs,[data-qa=ignore]')&&getComputedStyle(e).stroke!=='none');
 strokes.forEach(e=>{
@@ -125,7 +138,7 @@ const polys=conns.map(e=>{let L=0; try{L=e.getTotalLength();}catch(_){return nul
   const pe=e.getPointAtLength(L); pts.push([pe.x,pe.y]);
   const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
   const bb={x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};
-  return {pts,bb,d:(e.getAttribute('d')||e.tagName).slice(0,30)};}).filter(Boolean);
+  return {el:e,pts,bb,d:(e.getAttribute('d')||e.tagName).slice(0,30)};}).filter(Boolean);
 const outDist=(b,x,y)=>Math.hypot(Math.max(b.x-x,0,x-(b.x+b.w)),Math.max(b.y-y,0,y-(b.y+b.h)));
 const pen=(b,x,y)=>(x<b.x||x>b.x+b.w||y<b.y||y>b.y+b.h)?0:Math.min(x-b.x,b.x+b.w-x,y-b.y,b.y+b.h-y);
 // the smallest box that encloses another is its container; a wire drawn inside its own container is normal
@@ -133,19 +146,35 @@ const encloses=(o,b)=>b.x>=o.x-0.5&&b.y>=o.y-0.5&&b.x+b.w<=o.x+o.w+0.5&&b.y+b.h<
 Object.values(boxes).forEach(b=>{let p=null;
   Object.values(boxes).forEach(o=>{if(o!==b&&encloses(o,b)&&(!p||o.w*o.h<p.w*p.h)) p=o;});
   b.parent=p?p.id:'canvas';});
+const wires=strokes.map(e=>{let L=0; try{L=e.getTotalLength();}catch(_){return null;} if(!L) return null;
+  const pts=[],step=3; for(let d=0;d<=L;d+=step){const q=e.getPointAtLength(d); pts.push([q.x,q.y]);}
+  return {el:e,pts};}).filter(Boolean);
+const unit=(a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1; return [dx/L,dy/L];};
+// a T junction on another wire is a fork (a bus stub, a merge stem); lying along one is not
+const forkOnWire=(p,dir,own)=>wires.some(w=>{ if(w.el===own) return false;
+  for(let i=0;i<w.pts.length;i++){ const q=w.pts[i]; if(Math.hypot(q[0]-p[0],q[1]-p[1])>2.5) continue;
+    const j=i?i-1:Math.min(1,w.pts.length-1), k=i?Math.min(i+1,w.pts.length-1):0;
+    const wd=unit(w.pts[j],w.pts[k]);
+    if(Math.abs(wd[0]*dir[0]+wd[1]*dir[1])<0.87) return true;}
+  return false;});
 const edgeGap=[],edgeThroughBox=[];
 polys.forEach(c=>{
-  const ends=[[c.pts[0],'start'],[c.pts[c.pts.length-1],'end']];
+  const last=c.pts.length-1;
+  const ends=[[c.pts[0],'start',unit(c.pts[0],c.pts[Math.min(1,last)])],
+              [c.pts[last],'end',unit(c.pts[Math.max(0,last-1)],c.pts[last])]];
   const obst=solid.filter(b=>!encloses(b,c.bb));
-  ends.forEach(([p,which])=>{
+  ends.forEach(([p,which,dir])=>{
     let near=1e9,deep=0,anchored=false;
     solid.forEach(b=>{const o=outDist(b,p[0],p[1]),d=pen(b,p[0],p[1]); if(o<=3.5&&d<=3.5) anchored=true;});
+    if(!anchored&&forkOnWire(p,dir,c.el)) anchored=true;
     obst.forEach(b=>{near=Math.min(near,outDist(b,p[0],p[1])); deep=Math.max(deep,pen(b,p[0],p[1]));});
     if(deep>3.5&&!anchored) edgeGap.push({end:which,issue:'inside a box',by:+deep.toFixed(1),path:c.d});
     else if(!anchored&&near>2.5&&near<=14) edgeGap.push({end:which,issue:'short of the edge',gap:+near.toFixed(1),path:c.d});
   });
   const attached=b=>ends.some(([p])=>outDist(b,p[0],p[1])<=3.5||pen(b,p[0],p[1])>0);
-  obst.filter(b=>!attached(b)).forEach(b=>{let worst=0;
+  const covers=b=>{const el=svg.querySelector('[data-box="'+b.id+'"]');
+    return el&&getComputedStyle(el).fill!=='none'&&(c.el.compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING);};
+  obst.filter(b=>!attached(b)&&!covers(b)).forEach(b=>{let worst=0;
     c.pts.forEach(p=>{worst=Math.max(worst,pen(b,p[0],p[1]));});
     if(worst>2.5) edgeThroughBox.push({box:b.kind+':'+[Math.round(b.x),Math.round(b.y)],by:+worst.toFixed(1),path:c.d});});
 });
@@ -174,8 +203,11 @@ const peers={}; solid.forEach(b=>{const k=b.parent+'|'+b.kind; (peers[k]=peers[k
 const misalign=[];
 Object.values(peers).filter(bs=>bs.length>1).forEach(bs=>{
   [['left',b=>b.x],['right',b=>b.x+b.w],['center x',b=>b.x+b.w/2],['top',b=>b.y],['bottom',b=>b.y+b.h],['center y',b=>b.y+b.h/2]]
-   .forEach(([axis,f])=>clusters(bs.map(f),4).forEach(c=>{const spread=c[c.length-1]-c[0];
-     if(c.length>1&&spread>0.6) misalign.push({axis,at:+c[0].toFixed(1),spread:+spread.toFixed(1),boxes:c.length});}));});
+   .forEach(([axis,fn])=>clusters(bs.map(fn),4).forEach(c=>{const spread=c[c.length-1]-c[0];
+     if(c.length<2||spread<=0.6) return;
+     const members=bs.filter(b=>fn(b)>=c[0]-0.01&&fn(b)<=c[c.length-1]+0.01)
+       .map(b=>b.kind+':'+Math.round(b.x)+','+Math.round(b.y)).slice(0,4);
+     misalign.push({axis,at:+c[0].toFixed(1),spread:+spread.toFixed(1),boxes:c.length,which:members});}));});
 const gapUneven=[];
 [['row',b=>b.y+b.h/2,b=>b.x,b=>b.x+b.w],['column',b=>b.x+b.w/2,b=>b.y,b=>b.y+b.h]].forEach(([kind,key,lo,hi])=>{
   const groups={}; solid.forEach(b=>{const k=b.parent+'|'+b.kind+'|'+Math.round(key(b)/4)*4; (groups[k]=groups[k]||[]).push(b);});
@@ -203,7 +235,7 @@ fills.sort((a,b)=>a-b);
 const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,
   textFillMedian:fills.length?fills[Math.floor(fills.length/2)]:null,emptyBoxes};
 const wordBudget=Math.round(__WORDS_PER_10K__*W*H/10000);
-const out={size:[W,H],texts:texts.length,printWidthPt:PRINT,minFontPx:+MIN_FONT.toFixed(1),overflow,collide,boxOverlap,lineText,smallText,longText,
+const out={size:[W,H],texts:texts.length,printWidthPt:PRINT,minFontPx:+MIN_FONT.toFixed(1),overflow,collide,boxOverlap,textCovered,lineText,smallText,longText,
   words,wordBudget,tidy,coverage:+(cov/n).toFixed(3),framed:+(pcov/n).toFixed(3)};
 const pre=document.createElement('pre'); pre.id='qa'; pre.textContent=JSON.stringify(out); document.body.appendChild(pre);
 """

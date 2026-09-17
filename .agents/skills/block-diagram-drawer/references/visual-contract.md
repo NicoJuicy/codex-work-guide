@@ -178,12 +178,13 @@ Published figures read as tidy because equivalent things share an edge, peers sh
 
 ## 8. QA gate and its limits
 
-The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, strokes crossing uncovered labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget, or coverage below the threshold.
+The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, a label hidden under a card or chip drawn after it (`textCovered`), strokes crossing uncovered labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget, or coverage below the threshold.
 Every limit has a flag (`--min-pt`, `--print-width-pt`, `--max-words`, `--words-per-10k`, `--min-coverage`); relax one only deliberately and report why.
 The gate also prints a geometry report (`tidy`) that measures what "tidy" usually means by eye: connector ends that stop short of a box edge or die inside one (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), collinear wires lying on top of each other (`edgeOverlap`), peer boxes whose edges or centers nearly line up but miss (`misalign`), and centered labels that sit off-center in their chip (`offCenter`).
 `--strict-tidy` turns those five into failures and is the right setting for a figure that goes into a paper.
 Connector crossings, uneven gaps in a run of peers (`gapUneven`), the median text share of cards, and near-empty cards are printed but never fail, because a column keyed to rows of different heights and a deliberate crossing are legitimate.
 Peers in these checks are boxes of the same kind inside the same container, so nested groups and separate columns are never compared with each other.
+Two exemptions keep the geometry checks honest: a wire end that sits on another wire at a T junction is a fork, not a miss, and a card drawn after a wire with an opaque fill is a knock-out, not an obstacle.
 QA cannot judge semantics, arrow direction, icon fit, misleading sketches, font fallback, or aesthetic balance, so the rendered PNG must still be inspected.
 Link every text element to its container with `box=` so overflow is checked; freestanding labels are still covered by the collision and line checks.
 

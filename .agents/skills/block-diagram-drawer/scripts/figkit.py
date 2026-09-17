@@ -464,6 +464,9 @@ class Fig:
         total = sum(widths)
         if gap is None:
             gap = (x1 - x0 - total) / (n - 1) if n > 1 else 0
+        if total + gap * (n - 1) > (x1 - x0) + 0.5:
+            raise ValueError(f"{widths} with {gap:g} px gaps need {total + gap * (n - 1):g} px, "
+                             f"but only {x1 - x0:g} px are available")
         start = x0 + max(0.0, (x1 - x0 - total - gap * (n - 1)) / 2)
         out, x = [], start
         for w in widths:
@@ -877,16 +880,19 @@ class Fig:
                           family=label_family, italic=label_family == "serif")
         return d
 
-    def bus(self, src, targets, side="bottom", at=None, color=WIRE, sw=1.3, head=6.5, ta=0.5, gap=1.0):
+    def bus(self, src, targets, side="bottom", at=None, color=WIRE, sw=1.3, head=6.5, ta=0.5, gap=1.0,
+            face=None):
         """Fork one container into several with a shared trunk: a stem, one trunk line, one arrow per target.
 
         `side` is the side of `src` the stem leaves from; the trunk sits at `at` (a y for bottom/top, an x
         for left/right) or halfway between the boxes. Tidier than one long arrow per target.
+        `face` overrides which side of the targets the arrows enter, for a trunk that leaves upwards and
+        comes back down into targets that sit level with the source.
         """
         sx, sy = self.port(src, side, ta, out=gap)
         rects = [self.rect(t) for t in targets]
         if side in ("bottom", "top"):
-            face = "top" if side == "bottom" else "bottom"
+            face = face or ("top" if side == "bottom" else "bottom")
             edge = min(r[1] for r in rects) if side == "bottom" else max(r[1] + r[3] for r in rects)
             trunk = at if at is not None else round((sy + edge) / 2)
             xs = [r[0] + r[2] / 2 for r in rects]
@@ -897,7 +903,7 @@ class Fig:
                 tx, ty = self.port(t, face, 0.5, out=gap)
                 self.arrow(f"M{x:.1f} {trunk:.1f}V{ty:.1f}", color, sw, head=head)
         else:
-            face = "left" if side == "right" else "right"
+            face = face or ("left" if side == "right" else "right")
             edge = min(r[0] for r in rects) if side == "right" else max(r[0] + r[2] for r in rects)
             trunk = at if at is not None else round((sx + edge) / 2)
             ys = [r[1] + r[3] / 2 for r in rects]

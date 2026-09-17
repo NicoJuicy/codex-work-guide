@@ -279,6 +279,11 @@ class LayoutTests(unittest.TestCase):
         f = figkit.Fig(1400, 500)
         self.assertEqual(f.place(0, 600, [100, 120, 80], gap=20), [130, 250, 390])
 
+    def test_place_refuses_a_run_that_does_not_fit(self) -> None:
+        f = figkit.Fig(1400, 500)
+        with self.assertRaises(ValueError):
+            f.place(8, 1392, (420, 500, 420), gap=40)
+
     def test_containers_register_their_rectangle(self) -> None:
         f = figkit.Fig(1400, 500)
         card = f.card(10, 20, 100, 40, "blue")
@@ -319,6 +324,16 @@ class LayoutTests(unittest.TestCase):
         for top in ("V199.0", "V279.0", "V359.0"):
             self.assertIn(top, svg)
         self.assertIn("H480.0", svg)  # one trunk spanning the targets
+
+    def test_bus_face_overrides_the_entry_side(self) -> None:
+        f = figkit.Fig(1400, 400)
+        src = f.card(40, 120, 200, 60, "blue")
+        targets = [f.card(400 + 300 * k, 120, 200, 60, "green") for k in range(2)]
+        f.bus(src, targets, side="top", at=90, face="top", color=figkit.WIRE)
+        svg = f.svg()
+        self.assertIn("M140.0 119.0V90.0", svg)      # stem up from the source
+        for stub in ("M500.0 90.0V119.0", "M800.0 90.0V119.0"):
+            self.assertIn(stub, svg)                  # and back down into each target's top
 
     def test_arc_bends_to_one_side(self) -> None:
         f = figkit.Fig(1400, 500)
@@ -460,6 +475,31 @@ class QaGateTests(unittest.TestCase):
         self.assertTrue(any(item["axis"] == "top" and item["spread"] == 3 for item in tidy["misalign"]))
         self.assertTrue(any(item["kind"] == "row" for item in tidy["gapUneven"]))
         self.assertEqual(qa.failures(report, 0.0, strict_tidy=True) and True, True)
+
+    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
+    def test_browser_reports_a_label_hidden_under_a_later_card(self) -> None:
+        f = figkit.Fig(600, 200)
+        card = f.card(20, 20, 300, 60, "blue")
+        f.text(30, 55, "Generalist policy", size=20, box=card)
+        f.chip(150, 24, 120, 40, "ACT", "blue")  # drawn later, so it hides the tail of the label
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "covered.svg"
+            f.save(str(path))
+            report = qa.measure(path, _browser_or_none())
+        self.assertTrue(any("Generalist" in item["s"] for item in report["textCovered"]))
+        self.assertIn("textCovered=1", qa.failures(report, 0.0))
+
+    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
+    def test_browser_accepts_a_fork_off_a_trunk(self) -> None:
+        f = figkit.Fig(900, 300)
+        src = f.card(40, 200, 200, 60, "blue")
+        targets = [f.card(400, 200, 160, 60, "green"), f.card(620, 200, 160, 60, "green")]
+        f.bus(src, targets, side="top", at=140, face="top")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "fork.svg"
+            f.save(str(path))
+            report = qa.measure(path, _browser_or_none())
+        self.assertEqual(report["tidy"]["edgeGap"], [])  # stubs start on the trunk, not near a box
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_applies_monospace_family(self) -> None:
