@@ -280,6 +280,7 @@ SVG_NS = "http://www.w3.org/2000/svg"
 # stroke; width, height, class and style belong to the icon's original page, not to this figure.
 _ASSET_ROOT_KEEP = ("fill", "stroke", "stroke-linecap", "stroke-linejoin", "fill-rule", "clip-rule")
 _ASSET_DROP_TAGS = {"title", "desc", "metadata"}
+_BLACK_RE = re.compile(r"#0{3,8}|black|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\)", re.IGNORECASE)
 # Symbols share the figure's document, so scripts, stylesheets, embedded documents and external
 # references could run code, restyle every label, or pull remote content at render time.
 _ASSET_UNSAFE = re.compile(
@@ -331,9 +332,20 @@ def parse_svg_asset(raw: str, source: str = "asset") -> SvgAsset:
             else:
                 value = re.sub(r"url\(\s*#([^)\s]+)\s*\)", lambda m: f"url(#{slug}-{m.group(1)})", value)
             el.set(key, value)
+    painted = False
+    for el in root.iter():
+        for key in ("fill", "stroke"):
+            value = (el.get(key) or "").strip()
+            if not value or value.lower() == "none":
+                continue
+            # A solid-shape icon paints in literal black; tint it like a line icon does.
+            el.set(key, "currentColor" if _BLACK_RE.fullmatch(value) else value)
+            painted = True
     children = "".join(ET.tostring(child, encoding="unicode", short_empty_elements=True)
                        for child in root if child.tag not in _ASSET_DROP_TAGS)
     attrs = "".join(f' {k}="{escape(root.get(k), quote=True)}"' for k in _ASSET_ROOT_KEEP if root.get(k))
+    if not painted:
+        attrs += ' fill="currentColor"'  # Material Symbols and friends leave the paint implicit
     return SvgAsset(slug, vb, f"<g{attrs}>{children}</g>")
 
 

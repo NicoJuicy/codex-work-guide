@@ -87,20 +87,32 @@ Do at least three gate-and-inspect cycles for a figure the user cares about.
 
 ## Open-source icons
 
-Readers recognize a robot, camera, door, target, or checklist faster than the word, so figures should use real open-source icons for such objects instead of hand-drawn glyphs.
-`scripts/svgicons.py` searches two MIT families and vendors only the icons a figure uses: `tabler` (Tabler Icons outline, 5000+ pictograms) and `lobe` (LobeHub logos of AI models and providers).
+Readers recognize a robot arm, camera, door, target or checklist faster than the word, so every recognizable object, product or action comes from a real icon set; only data sketches stay hand-drawn.
+`scripts/svgicons.py` searches six permissively licensed families and vendors only the files a figure uses.
+
+| Family | License | Style | What it is for |
+|---|---|---|---|
+| `tabler` | MIT | stroke | 5900 pictograms, the broad default for objects and actions |
+| `lucide` | ISC | stroke | 1800 very plain icons, the calmest line family |
+| `iconoir` | MIT | stroke | 1600 icons on a 1.5 px grid, a little more geometric |
+| `phosphor` | MIT | fill | 9000 icons in one solid-outline style, the richest vocabulary |
+| `material` | Apache-2.0 | fill | 3700 Material Symbols at weight 400; the only family with real machine and robotics vocabulary (`precision_manufacturing`, `conveyor_belt`) |
+| `material200` | Apache-2.0 | fill | the same set at weight 200, for an icon that carries a card at 60 px or more |
+| `lobe` | MIT | logos | logos of AI models and providers (`qwen`, `openai`, `claude`) |
 
 ```bash
-python <skill-dir>/scripts/svgicons.py search "robot arm"
-python <skill-dir>/scripts/svgicons.py search qwen --family lobe
-python <skill-dir>/scripts/svgicons.py get tabler:target --out <project>/figures/src/assets/target.svg
+python <skill-dir>/scripts/svgicons.py search "robot arm"          # every family, ranked
+python <skill-dir>/scripts/svgicons.py search door --family phosphor
+python <skill-dir>/scripts/svgicons.py get material:precision_manufacturing --out <project>/figures/src/assets/m-arm.svg
 ```
 
-Place an icon with `f.asset(HERE / "assets" / "target.svg", x, y, 20, color=A.deep)`; figkit validates the file, embeds it once as a symbol, and normalizes the display stroke.
+Place an icon with `f.asset(HERE / "assets" / "m-arm.svg", x, y, 104, color=STEEL)`; figkit validates the file, embeds it once as a symbol, normalizes a line icon's display stroke, and tints a solid icon through `currentColor`.
 
-- Search two or three synonyms and compare silhouettes on a contact sheet before choosing; pick the icon whose shape names the object, not a loosely related metaphor.
-- Keep one outline family (Tabler) per figure, a 1.5 px display stroke, and 18 to 28 px sizes on a 1400 px canvas; tint icons with the role's deep color or ink.
-- Put an icon beside a label or inside a chip; it never replaces the label, never stands in for model internals, data, or math, and never becomes decoration on every card.
+- Search several synonyms across families, render the candidates on a contact sheet at the size they will be used, and pick the silhouette that names the object. A robot arm, a cup and a door are different icons in every family, and the weight that looks right at 40 px is often too heavy at 96 px.
+- Keep one family per figure, chosen because it has every object the figure needs; never mix a stroke family with a fill family, or either with the built-in `icon()` glyphs.
+- Stroke families take `sw` (1.5 px default, 2 px from about 36 px up); fill families carry their own weight, so step down to a lighter weight (`material200`) instead of enlarging a heavy one.
+- Sizes: 18 to 28 px beside a label, 36 to 48 px in a tile over its name, 60 to 110 px when the icon is a card's subject. Tint with the role's deep color, ink, or a neutral steel gray.
+- Put an icon beside a label or above it in a tile; it never replaces the label, never stands in for model internals, data or math, and never becomes decoration on every card.
 - Use a `lobe` logo only for the exact model or provider the figure names, prefer the mono variant, and keep it smaller than the module name.
 - `get` copies the family license and records the source in `assets/ASSETS.md`; ship both with the figure.
 - Without network access, fall back to figkit's built-in `icon()` glyphs and say so.

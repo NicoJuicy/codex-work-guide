@@ -71,6 +71,30 @@ class MathMarkupTests(unittest.TestCase):
         self.assertIn("&lt;b&gt;", figkit.rich("<b>", 12))
 
 
+class AssetTests(unittest.TestCase):
+    def test_solid_icon_without_paint_is_tinted_with_currentcolor(self) -> None:
+        raw = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">'
+               '<path d="M0 0h10v10H0z"/></svg>')
+        asset = figkit.parse_svg_asset(raw, "arm.svg")
+        self.assertIn('fill="currentColor"', asset.body)
+        self.assertEqual(asset.view_box, (0.0, -960.0, 960.0, 960.0))
+
+    def test_literal_black_paint_becomes_currentcolor(self) -> None:
+        raw = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#000">'
+               '<path d="M0 0h10v10H0z" stroke="black"/></svg>')
+        body = figkit.parse_svg_asset(raw, "robot.svg").body
+        self.assertIn('fill="currentColor"', body)
+        self.assertIn('stroke="currentColor"', body)
+        self.assertNotIn("#000", body)
+
+    def test_real_colors_and_none_survive(self) -> None:
+        raw = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+               'stroke="currentColor"><path d="M0 0h1v1H0z" fill="#615CED"/></svg>')
+        body = figkit.parse_svg_asset(raw, "logo.svg").body
+        self.assertIn('fill="none"', body)
+        self.assertIn("#615CED", body)
+
+
 class FigureTests(unittest.TestCase):
     def build(self) -> figkit.Fig:
         f = figkit.Fig(400, 200)

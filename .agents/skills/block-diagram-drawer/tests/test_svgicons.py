@@ -50,6 +50,26 @@ class SearchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             svgicons.parse_index(lobe, json.dumps({"files": []}).encode())
 
+    def test_underscore_slugs_and_fill_variants(self) -> None:
+        material = svgicons.FAMILIES["material"]
+        family, slug = svgicons.parse_ref("material:precision_manufacturing")
+        self.assertEqual((family.name, slug), ("material", "precision_manufacturing"))
+        meta = {"files": [{"path": f"/outlined/icon_{n}.svg"} for n in range(1000)]
+                + [{"path": "/outlined/icon_1-fill.svg"}, {"path": "/outlined/icon_1_fill.svg"}]}
+        slugs = svgicons.parse_index(material, json.dumps(meta).encode())
+        self.assertEqual(len(slugs), 1000)
+        self.assertEqual(svgicons.search({"material": ["precision_manufacturing", "manufacturing"]},
+                                         "precision manufacturing", 1)[0].slug, "precision_manufacturing")
+
+    def test_every_family_ships_its_license_and_a_style(self) -> None:
+        for name, family in svgicons.FAMILIES.items():
+            with self.subTest(family=name):
+                self.assertTrue((svgicons.LICENSES / family.license_file).is_file())
+                self.assertIn(family.style, ("stroke", "fill", "logo"))
+                self.assertTrue(family.index_url.startswith(family.allowed))
+                self.assertTrue(family.raw_url.startswith(family.allowed))
+        self.assertEqual(svgicons.FAMILIES["material200"].license_name, "material")
+
     def test_requests_outside_the_allowlist_are_refused(self) -> None:
         with self.assertRaises(ValueError):
             svgicons.request_bytes("https://example.com/robot.svg", svgicons.FAMILIES["tabler"])
