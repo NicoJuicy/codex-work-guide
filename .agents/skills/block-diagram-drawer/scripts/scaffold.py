@@ -4,7 +4,7 @@ Vendoring figkit.py and qa_svg_figure.py beside the figure scripts keeps every
 figure reproducible even after the skill itself changes.
 
 Usage:
-    python scaffold.py <project>/figures/src/fig_pipeline.py [--width 1400] [--height 400] [--panels 4]
+    python scaffold.py <project>/figures/src/fig_pipeline.py [--width 1400] [--height 500] [--panels 4]
                        [--force] [--update-kit]
 
 The build script writes <project>/figures/pipeline-figure.svg (the "fig_" prefix
@@ -31,10 +31,13 @@ from figkit import FAINT, HAIR, INK, MUTED, PAL, WIRE, Fig
 
 OUT = Path(__file__).resolve().parent.parent / "{output}"
 
+# 1400 px prints at text width (figure*), 700 px at one column; f.fs() gives print-size fonts in px.
 f = Fig({width}, {height})
 B, P, R, G, A, O, Y = (PAL[k] for k in ("blue", "purple", "red", "green", "amber", "orange", "gray"))
+LABEL, MODULE = f.fs("label"), f.fs("module")
 
 # Column grid: 8 px outer margin, 8 px gutters. Replace the placeholder panels with the real stages.
+# Labels are names (at most six words); explanations go in the caption, prompts and code in f.example().
 {panels}
 
 f.save(str(OUT))
@@ -42,10 +45,10 @@ print(OUT)
 '''
 
 PANEL = '''# ---------------------------------------------------------------- ({label}) stage {n}
-top = f.panel({x}, 8, {w}, {h}, "{role}", "({label}) Stage {n}", sub="one-line subtitle", sub_below=True)
-c = f.card({cx}, top, {cw}, {ch}, "{role}")
-f.text({tx}, top + 22, "Module", size=13.5, weight=500, box=c)
-f.text({tx}, top + 46, "$x_t$ data label", size=11.5, color=MUTED, box=c, family="serif", italic=True)
+top = f.panel({x}, 8, {w}, {h}, "{role}", "({label}) Stage {n}")
+c = f.card({cx}, top + 4, {cw}, {bottom} - top - 4, "{role}")
+f.text({tx}, top + 34, "Module", size=MODULE, weight=500, box=c)
+f.text({tx}, top + 64, "$x_t$ input", size=LABEL, color=MUTED, box=c, family="serif", italic=True)
 '''
 
 ROLES = ("gray", "blue", "amber", "green", "purple", "red", "orange")
@@ -59,7 +62,7 @@ def panel_code(width: int, height: int, count: int) -> str:
         x = margin + i * (pw + gutter)
         blocks.append(PANEL.format(
             label=chr(ord("a") + i), n=i + 1, x=round(x), w=round(pw), h=height - 16, role=ROLES[i % len(ROLES)],
-            cx=round(x + 10), cw=round(pw - 20), ch=height - 16 - 58, tx=round(x + 20),
+            cx=round(x + 10), cw=round(pw - 20), bottom=height - 18, tx=round(x + 22),
         ))
     return "\n".join(blocks)
 
@@ -91,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Start a block-diagram build script with a vendored kit.")
     parser.add_argument("target", type=Path)
     parser.add_argument("--width", type=int, default=1400)
-    parser.add_argument("--height", type=int, default=400)
+    parser.add_argument("--height", type=int, default=500)
     parser.add_argument("--panels", type=int, default=4)
     parser.add_argument("--force", action="store_true", help="overwrite an existing build script")
     parser.add_argument("--update-kit", action="store_true", help="refresh vendored figkit.py and qa_svg_figure.py")

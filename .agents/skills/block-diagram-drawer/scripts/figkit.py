@@ -1,7 +1,12 @@
-"""figkit - primitives for dense, paper-style SVG block diagrams.
+"""figkit - primitives for paper-style SVG block diagrams.
 
-Visual language (v2), distilled from CoRL / RSS / ICRA method figures
-(pi0, OpenVLA, Octo, DP3, RT-H, YAY Robot, ReKep, RoboPoint, DexMimicGen, Hi Robot):
+Visual language (v4), measured on 359 method figures from papers published at
+robotics, ML and CV venues (see references/paper-figure-study.md):
+- Print-size typography: the canvas maps to a real print width (1400 px ~ text width,
+  700 px ~ one column, both ~2.7 px per point), labels print at 6 to 9 pt, and
+  `Fig.fs(role)` returns those sizes in canvas pixels. Labels are names, not sentences;
+  explanations belong in the caption, and verbatim prompts or code go in `example` cards.
+- Real imagery: `Fig.image` embeds renders, photos and data crops.
 - Muted flat palette: a few pastel role fills with a slightly darker stroke,
   warm-gray neutrals, near-black thin connectors. No gradients on containers.
 - Typography carries hierarchy: bold only for panel titles and key words,
@@ -10,7 +15,7 @@ Visual language (v2), distilled from CoRL / RSS / ICRA method figures
 - Shape carries meaning: token pills for sequences, trapezoids for encoders,
   bracketed vectors for actions, cylinders for stored data, block arrows for
   stage transitions, circled numbers for steps, dashed outlines for groups.
-- Dense layout: tight margins and gutters; the title lives in the caption.
+- Tight layout: small margins and gutters; the title lives in the caption.
 
 All geometry is explicit. `qa_svg_figure.py` renders the SVG in headless Chrome
 and gates text overflow, text collisions, box overlap, lines through labels and
@@ -27,6 +32,7 @@ model logos) fetched with `svgicons.py`; hand-drawn shapes stay for method conte
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import math
 import re
@@ -46,6 +52,13 @@ MUTED = "#5C5C5C"
 FAINT = "#8C8C8C"
 HAIR = "#D8D4CA"
 WIRE = "#3A3A3A"
+
+# Printed sizes measured on robotics method figures (references/paper-figure-study.md).
+TEXT_WIDTH_PT = 516.0  # two-column text width, the width of a figure* float
+COLUMN_WIDTH_PT = 252.0  # one column
+TYPE_PT = {"note": 5.5, "min": 6.0, "label": 6.7, "module": 7.8, "title": 9.0, "hero": 12.0}
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+_RASTER_MAGIC = ((b"\x89PNG\r\n\x1a\n", "image/png"), (b"\xff\xd8\xff", "image/jpeg"), (b"RIFF", "image/webp"))
 
 
 class Role:
@@ -113,12 +126,20 @@ _SYM = {
     "alpha": "α", "beta": "β", "sigma": "σ", "epsilon": "ε", "Delta": "Δ", "Sigma": "Σ",
     "in": "∈", "times": "×", "le": "≤", "ge": "≥", "to": "→", "approx": "≈", "neq": "≠",
     "cdot": "·", "mid": "∣", "notin": "∉", "uparrow": "↑", "downarrow": "↓", "star": "⋆",
+    "subseteq": "⊆", "subset": "⊂", "cup": "∪", "cap": "∩", "langle": "⟨", "rangle": "⟩", "forall": "∀", "exists": "∃",
+    "prec": "≺", "preceq": "⪯", "mapsto": "↦", "Rightarrow": "⇒", "leftrightarrow": "↔", "rightarrow": "→", "leftarrow": "←",
+    "wedge": "∧", "vee": "∨", "neg": "¬", "emptyset": "∅", "ldots": "…", "cdots": "⋯",
+    "delta": "δ", "kappa": "κ", "rho": "ρ", "gamma": "γ", "omega": "ω", "Pi": "Π", "Gamma": "Γ", "Theta": "Θ", "Omega": "Ω",
+    "Lambda": "Λ", "Phi": "Φ", "Psi": "Ψ",
     "top": "⊤", "sqrt": "√", "odot": "⊙", "oplus": "⊕", "otimes": "⊗", "lambda": "λ", "mu": "μ", "partial": "∂", "nabla": "∇", "prime": "′", "infty": "∞", "sim": "∼", "gets": "←",
     ";": " ", ",": " ", " ": " ", "quad": "  ",
 }
-_ITALIC_GREEK = {"pi", "tau", "theta", "eta", "psi", "phi", "ell", "alpha", "beta", "sigma", "epsilon", "lambda", "mu"}
+_ITALIC_GREEK = {"pi", "tau", "theta", "eta", "psi", "phi", "ell", "alpha", "beta", "sigma", "epsilon", "lambda", "mu",
+                 "delta", "kappa", "rho", "gamma", "omega"}
 _BB = {"R": "ℝ", "N": "ℕ", "E": "𝔼"}
-_CAL = {"L": "ℒ", "J": "𝒥", "D": "𝒟", "O": "𝒪", "A": "𝒜", "V": "𝒱", "R": "ℛ", "N": "𝒩", "M": "ℳ", "F": "ℱ", "S": "𝒮", "T": "𝒯"}
+_CAL = {"L": "ℒ", "J": "𝒥", "D": "𝒟", "O": "𝒪", "A": "𝒜", "V": "𝒱", "R": "ℛ", "N": "𝒩", "M": "ℳ", "F": "ℱ", "S": "𝒮", "T": "𝒯",
+        "G": "𝒢", "C": "𝒞", "H": "ℋ", "B": "ℬ", "X": "𝒳", "E": "ℰ", "P": "𝒫", "I": "ℐ", "K": "𝒦", "Q": "𝒬", "U": "𝒰",
+        "W": "𝒲", "Y": "𝒴", "Z": "𝒵"}
 
 
 def _math_plain(src: str) -> str:
@@ -190,7 +211,7 @@ def _parse(src: str, i: int = 0, upright: bool = False, stop: str | None = None)
     return atoms, i
 
 
-_REL = set("=∈∉≤≥→≈≠∼←")
+_REL = set("=∈∉≤≥→≈≠∼←⊆⊂↦≺⪯⇒↔")
 _BIN = set("+\u2212×")
 
 
@@ -321,6 +342,17 @@ def load_svg_asset(path) -> SvgAsset:
     return parse_svg_asset(path.read_text(encoding="utf-8"), str(path))
 
 
+def load_raster(path) -> tuple[str, bytes]:
+    """Read a PNG, JPEG or WebP file for embedding; the type comes from its magic bytes, not its name."""
+    data = Path(path).read_bytes()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError(f"{path}: {len(data)} bytes exceeds the {MAX_IMAGE_BYTES} byte image limit; downscale it first")
+    for magic, mime in _RASTER_MAGIC:
+        if data.startswith(magic) and (mime != "image/webp" or data[8:12] == b"WEBP"):
+            return mime, data
+    raise ValueError(f"{path}: not a PNG, JPEG or WebP image")
+
+
 # ---------------------------------------------------------------------------
 # Icons (24x24 line glyphs; offline fallback when no vendored asset fits)
 # ---------------------------------------------------------------------------
@@ -345,6 +377,9 @@ ICONS = {
     "contact": '<path d="M12 2.5v9"/><path d="M8.5 8l3.5 3.5L15.5 8"/><path d="M3 15h18"/><path d="M5.5 19l2.5-2.5M10 19l2.5-2.5M14.5 19l2.5-2.5M19 19l1.5-1.5"/>',
     "target": '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.3"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/>',
     "dist": '<path d="M2 19.5h20"/><path d="M2 19c3 0 4.2-11 7-11s4 11 7 11"/><path d="M8 19c3 0 4.2-11 7-11s4 11 7 11" stroke-dasharray="2 2"/>',
+    "snowflake": '<path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5"/><path d="M9.5 3.8L12 6l2.5-2.2M9.5 20.2L12 18l2.5 2.2M3.3 10.3l3.2.9-.8 3.2M20.7 13.7l-3.2-.9.8-3.2M5.7 5.2l.8 3.2-3.2.9M18.3 18.8l-.8-3.2 3.2-.9"/>',
+    "flame": '<path d="M12 21.5c-3.9 0-6.5-2.6-6.5-6.2 0-3.3 2.3-5.2 3.7-7.6.6 1.6 1.4 2.6 2.4 3.1C11.3 7.3 12.6 4.4 15 2.5c.3 3.2 3.5 5.5 3.5 10.1 0 5-2.8 8.9-6.5 8.9z"/><path d="M12 21.5c-1.7 0-2.8-1.2-2.8-2.8 0-1.7 1.3-2.6 2-3.9.9 1.2 3.6 2 3.6 4 0 1.5-1.2 2.7-2.8 2.7z"/>',
+    "lock": '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
     "eyeoff": '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/>',
     "zigzag": '<path d="M2.5 17.5l4-6 3 4 4-9 3 6 5-5"/>',
     "traj": '<circle cx="4.5" cy="18.5" r="1.8"/><circle cx="19.5" cy="5.5" r="1.8"/><path d="M6.3 17.6c3.2-1.2 3.4-5.4 6.2-6.4 2.4-.9 3.9-2.4 5.3-4.3" stroke-dasharray="2.2 2.4"/>',
@@ -379,14 +414,25 @@ SCENE = """<symbol id="scene" viewBox="0 0 130 96">
 
 
 class Fig:
-    def __init__(self, w: int, h: int, bg: str = "#FFFFFF"):
-        self.w, self.h, self.bg = w, h, bg
+    def __init__(self, w: int, h: int, bg: str = "#FFFFFF", print_width_pt: float | None = None, family: str = "sans"):
+        """`print_width_pt` is the printed width of the whole canvas; the default treats canvases at least
+        1000 px wide as text-width (figure*) floats and narrower ones as single-column floats.
+        `family` is the label family inherited by every text: "sans" by default, "serif" for papers set in Times."""
+        if family not in ("sans", "serif"):
+            raise ValueError("family must be 'sans' or 'serif'")
+        self.w, self.h, self.bg, self.family = w, h, bg, family
+        self.print_width_pt = print_width_pt or (TEXT_WIDTH_PT if w >= 1000 else COLUMN_WIDTH_PT)
         self.defs: dict[str, str] = {}
         self.body: list[str] = []
         self._n = 0
         self._assets: dict[str, SvgAsset] = {}
 
     # -- plumbing ----------------------------------------------------------
+    def fs(self, role: str = "label") -> float:
+        """Font size in canvas px that prints at the measured paper size for `role`
+        (note, min, label, module, title, hero). `note` is only for secondary annotations such as tensor shapes."""
+        return round(TYPE_PT[role] * self.w / self.print_width_pt, 1)
+
     def uid(self, prefix: str) -> str:
         self._n += 1
         return f"{prefix}{self._n}"
@@ -414,7 +460,7 @@ class Fig:
             # Default family on the root (inherited) rather than a `text{}` CSS rule: a stylesheet rule
             # would override per-element font-family attributes and silently drop serif/mono labels.
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}" '
-            f'font-family="{SANS}">'
+            f'font-family="{FAMILIES[self.family]}" data-print-width-pt="{self.print_width_pt:g}">'
             f"<style>text{{white-space:pre;font-kerning:normal}}text:not([fill]){{fill:{INK}}}"
             f".ic{{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}}</style>"
             f"<defs>{defs}</defs>"
@@ -426,11 +472,16 @@ class Fig:
             f.write(self.svg())
 
     # -- text --------------------------------------------------------------
-    def text(self, x, y, s, size=11.5, weight=400, color=INK, anchor="start", ls=0.0, box=None,
-             italic=False, opacity=None, family="sans"):
-        """Rich text. family: sans (labels), serif (data names, quoted language), mono (tokens, code)."""
+    def text(self, x, y, s, size=None, weight=400, color=INK, anchor="start", ls=0.0, box=None,
+             italic=False, opacity=None, family=None, note=False):
+        """Rich text. family: None inherits the figure family; sans (labels), serif (data names, quoted
+        language) or mono (tokens, code) set it explicitly. `size` defaults to the label size, or to the note
+        size with note=True, which marks a secondary annotation the QA gate allows down to 5 pt."""
+        size = size or self.fs("note" if note else "label")
         attrs = f'x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{color}"'
-        if family != "sans":
+        if note:
+            attrs += ' data-tier="note"'
+        if family and family != self.family:
             attrs += f' font-family="{FAMILIES[family]}"'
         if weight != 400:
             attrs += f' font-weight="{weight}"'
@@ -447,7 +498,7 @@ class Fig:
         self.add(f"<text {attrs}>{rich(s, size)}</text>")
 
     # -- containers ----------------------------------------------------------
-    def panel(self, x, y, w, h, role, title, sub=None, dashed=False, horizontal=False, r=8, title_size=15, fill=None,
+    def panel(self, x, y, w, h, role, title, sub=None, dashed=False, horizontal=False, r=8, title_size=None, fill=None,
               sub_below=False):
         """Flat stage panel with a left-aligned bold title and a regular gray subtitle on the same line
         (or on the next line with sub_below=True for narrow panels).
@@ -463,14 +514,18 @@ class Fig:
         self.add(f'<rect data-box="{bid}" data-kind="panel" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" {body}/>')
         if not title:
             return y + 10
+        title_size = title_size or self.fs("title")
+        sub_size = max(self.fs("min"), round(title_size * 0.8, 1))
+        ty = y + round(title_size * 1.47)
         markup = f'<tspan font-weight="700">{rich(title, title_size)}</tspan>'
         if sub and not sub_below:
-            markup += f'<tspan dx="9" font-size="{title_size - 3}" fill="{MUTED}">{rich(sub, title_size - 3)}</tspan>'
-        self.add(f'<text x="{x + 12}" y="{y + 22}" font-size="{title_size}" fill="{INK}" data-in="{bid}">{markup}</text>')
+            markup += f'<tspan dx="{round(title_size * 0.6)}" font-size="{sub_size}" fill="{MUTED}">{rich(sub, sub_size)}</tspan>'
+        self.add(f'<text x="{x + 12}" y="{ty}" font-size="{title_size}" fill="{INK}" data-in="{bid}">{markup}</text>')
         if sub and sub_below:
-            self.text(x + 12, y + 38, sub, size=title_size - 3, color=MUTED, box=bid)
-            return y + 48
-        return y + 34
+            sy = ty + round(sub_size * 1.35)
+            self.text(x + 12, sy, sub, size=sub_size, color=MUTED, box=bid)
+            return sy + round(sub_size * 0.83)
+        return ty + round(title_size * 0.8)
 
     def card(self, x, y, w, h, role=None, fill=None, sw=1.0, r=5, stack=0, topbar=False, dashed=False,
              stroke=None, kind="card", key=False):
@@ -492,8 +547,14 @@ class Fig:
             self.add(f'<path d="M{x + r} {y + 1.5}H{x + w - r}" stroke="{p.accent}" stroke-width="3" stroke-linecap="round"/>')
         return cid
 
-    def chip(self, x, y, w, h, s, role=None, size=11.5, fill=None, color=None, weight=400, r=3, stroke=None,
+    def example(self, x, y, w, h, role=None, fill=None, stroke=None, dashed=False, r=5):
+        """Card for verbatim example content (an instruction, prompt, generated code, reasoning trace).
+        Labels boxed in it may be full sentences; the QA word limits skip them."""
+        return self.card(x, y, w, h, role, fill=fill, stroke=stroke, dashed=dashed, r=r, kind="example")
+
+    def chip(self, x, y, w, h, s, role=None, size=None, fill=None, color=None, weight=400, r=3, stroke=None,
              dashed=False, family="sans", italic=False):
+        size = size or self.fs("label")
         p = PAL[role] if role else None
         cid = self.card(x, y, w, h, fill=fill or (p.tint if p else "#FFFFFF"), stroke=stroke or (p.mid if p else HAIR),
                         sw=0.9, r=r, dashed=dashed, kind="chip")
@@ -501,8 +562,10 @@ class Fig:
                   anchor="middle", box=cid, family=family, italic=italic)
         return cid
 
-    def badge(self, x, y, s, role, size=11, h=19, w=None):
+    def badge(self, x, y, s, role, size=None, h=None, w=None):
         """Quiet tag for a key number: tint fill, bold deep text, no outline."""
+        size = size or self.fs("min")
+        h = h or round(size * 1.6)
         p = PAL[role]
         w = w or text_w(s, size, bold=True) + 12
         cid = self.uid("b")
@@ -511,8 +574,10 @@ class Fig:
         self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, weight=700, color=p.deep, anchor="middle", box=cid)
         return w
 
-    def pill(self, cx, cy, s, role="gray", size=11.5, h=22, fill="#FFFFFF", weight=400, italic=True, family="serif"):
+    def pill(self, cx, cy, s, role="gray", size=None, h=None, fill="#FFFFFF", weight=400, italic=True, family="serif"):
         """Label that sits on a connector: white knock-out background, serif italic text."""
+        size = size or self.fs("label")
+        h = h or round(size * 1.6)
         p = PAL[role]
         w = text_w(s, size) + 12
         cid = self.uid("p")
@@ -522,10 +587,12 @@ class Fig:
                   italic=italic, family=family)
         return w
 
-    def step(self, cx, cy, n, r=8.5, color=INK):
+    def step(self, cx, cy, n, r=None, color=INK, size=None):
         """Circled step number (thin outline)."""
+        size = size or self.fs("min")
+        r = r or round(size * 0.78, 1)
         self.add(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="#FFFFFF" stroke="{color}" stroke-width="1"/>')
-        self.text(cx, cy + 4, str(n), size=11, color=color, anchor="middle")
+        self.text(cx, cy + size * 0.36, str(n), size=size, color=color, anchor="middle")
 
     # -- shapes with meaning ----------------------------------------------------
     def tokens(self, x, y, n, role, w=16, h=8, gap=4, lit=None, dashed=False, to_role=None):
@@ -542,7 +609,8 @@ class Fig:
                      f'stroke="{st}" stroke-width="0.9"{dash}/>')
         return n * w + (n - 1) * gap
 
-    def trapezoid(self, x, y, w, h, role, s=None, size=12, inset=0.16, wide_bottom=True, family="sans", italic=False):
+    def trapezoid(self, x, y, w, h, role, s=None, size=None, inset=0.16, wide_bottom=True, family="sans", italic=False):
+        size = size or self.fs("module")
         p = PAL[role]
         d = w * inset
         pts = (f"{x + d},{y} {x + w - d},{y} {x + w},{y + h} {x},{y + h}" if wide_bottom
@@ -559,8 +627,9 @@ class Fig:
         self.add(f'<path d="M{x + tick} {y}H{x}V{y + h}H{x + tick}M{x + w - tick} {y}H{x + w}V{y + h}H{x + w - tick}" '
                  f'fill="none" stroke="{color}" stroke-width="{sw}"/>')
 
-    def cylinder(self, x, y, w, h, role, s=None, size=11.5, family="serif", italic=True):
+    def cylinder(self, x, y, w, h, role, s=None, size=None, family="serif", italic=True):
         """Stored data (history, dataset)."""
+        size = size or self.fs("label")
         p = PAL[role]
         ry = min(6.0, h * 0.18)
         cid = self.uid("cy")
@@ -587,8 +656,9 @@ class Fig:
             pts = f"{x1 - width / 2},{y1} {x1 - width / 2},{yb} {x1 - width},{yb} {x1},{y2} {x1 + width},{yb} {x1 + width / 2},{yb} {x1 + width / 2},{y1}"
         self.add(f'<polygon points="{pts}" fill="{color}"/>')
 
-    def bubble(self, x, y, w, h, s, role="gray", size=12, tail="left", family="serif", italic=True, weight=400, stroke=None):
-        """Speech bubble for language (instructions, model utterances)."""
+    def bubble(self, x, y, w, h, s, role="gray", size=None, tail="left", family="serif", italic=True, weight=400, stroke=None):
+        """Speech bubble for language (instructions, model utterances). Its text counts as example content."""
+        size = size or self.fs("label")
         p = PAL[role]
         r = 8
         cy = y + h / 2
@@ -599,7 +669,7 @@ class Fig:
             d = (f"M{x + r} {y}H{x + w - r}A{r} {r} 0 0 1 {x + w} {y + r}V{y + h - r}A{r} {r} 0 0 1 {x + w - r} {y + h}"
                  f"H{x + r}A{r} {r} 0 0 1 {x} {y + h - r}V{y + r}A{r} {r} 0 0 1 {x + r} {y}Z")
         cid = self.uid("bb")
-        self.add(f'<path data-box="{cid}" data-kind="card" d="{d}" fill="#FFFFFF" stroke="{stroke or p.accent}" stroke-width="1.1"/>')
+        self.add(f'<path data-box="{cid}" data-kind="example" d="{d}" fill="#FFFFFF" stroke="{stroke or p.accent}" stroke-width="1.1"/>')
         self.text(x + w / 2, cy + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid, family=family,
                   italic=italic, weight=weight)
         return cid
@@ -633,6 +703,24 @@ class Fig:
         self.add(f'<rect data-box="{bid}" data-kind="icon" x="{x}" y="{y}" width="{size}" height="{h:.2f}" '
                  f'fill="none" stroke="none"/>')
         return bid
+
+    def image(self, path, x, y, w, h, fit="cover", r=3, frame=HAIR):
+        """Embed a real render, photo or data crop (PNG, JPEG or WebP) clipped to a rounded frame.
+
+        fit: "cover" fills the frame and crops, "contain" letterboxes, "stretch" ignores the aspect ratio.
+        The bytes are inlined as a data URI, so the SVG stays self-contained. Returns the frame's QA box id.
+        """
+        aspect = {"cover": "xMidYMid slice", "contain": "xMidYMid meet", "stretch": "none"}[fit]
+        mime, data = load_raster(path)
+        clip = self.uid("clip")
+        self.defs[clip] = f'<clipPath id="{clip}"><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}"/></clipPath>'
+        uri = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+        self.add(f'<g clip-path="url(#{clip})"><image href="{uri}" x="{x}" y="{y}" width="{w}" height="{h}" '
+                 f'preserveAspectRatio="{aspect}"/></g>')
+        cid = self.uid("img")
+        stroke = f'stroke="{frame}" stroke-width="1"' if frame else 'stroke="none"'
+        self.add(f'<rect data-box="{cid}" data-kind="thumb" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="none" {stroke}/>')
+        return cid
 
     def scene(self, x, y, w, h, frame=None, marker=None):
         if "scene" not in self.defs:
@@ -674,6 +762,77 @@ class Fig:
     def line(self, d, color=HAIR, sw=1.0, dashed=False):
         dash = ' stroke-dasharray="3 3"' if dashed else ""
         self.add(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{sw}"{dash}/>')
+
+    # -- conventions seen across published figures ------------------------------
+    def _glyph(self, name, x, y, size, color):
+        self.icon(name, x, y, size, color)
+        bid = self.uid("ic")
+        self.add(f'<rect data-box="{bid}" data-kind="icon" x="{x}" y="{y}" width="{size}" height="{size}" fill="none" stroke="none"/>')
+        return bid
+
+    def mark(self, kind, x, y, size=None):
+        """Module-state mark placed in a module corner: "frozen" (snowflake), "trainable" (flame) or "locked"."""
+        name, color = {"frozen": ("snowflake", PAL["blue"].accent), "trainable": ("flame", PAL["red"].accent),
+                       "locked": ("lock", MUTED)}[kind]
+        return self._glyph(name, x, y, size or round(self.fs("label") * 1.1), color)
+
+    def outcome(self, x, y, ok=True, size=None):
+        """Check or cross badge for an accept/reject or success/failure branch."""
+        return self._glyph("check" if ok else "x", x, y, size or round(self.fs("label") * 1.1),
+                           PAL["green"].deep if ok else PAL["red"].deep)
+
+    def divider(self, x, y0, y1, color=HAIR, dashed=True, sw=1.2):
+        """Thin vertical rule between mirrored panels (baseline vs ours, training vs deployment)."""
+        dash = ' stroke-dasharray="5 4"' if dashed else ""
+        self.add(f'<path d="M{x} {y0}V{y1}" fill="none" stroke="{color}" stroke-width="{sw}"{dash} data-qa="ignore"/>')
+
+    def stage_ruler(self, spans, y, tick=7, size=None, weight=600):
+        """Bracket ruler naming stages under (or above) columns: spans are (x0, x1, label, role) tuples.
+        Ticks point up, toward the columns; place the ruler above the columns with a negative tick."""
+        size = size or self.fs("label")
+        for x0, x1, label, role in spans:
+            color = PAL[role].deep if role else INK
+            self.add(f'<path d="M{x0} {y - tick}V{y}H{x1}V{y - tick}" fill="none" stroke="{PAL[role].accent if role else WIRE}" '
+                     f'stroke-width="1.4" data-qa="ignore"/>')
+            ty = y + size * 1.25 if tick > 0 else y - size * 0.55
+            self.text((x0 + x1) / 2, ty, label, size=size, weight=weight, color=color, anchor="middle")
+
+    def zoom(self, src, dst, color=FAINT, dashed=True):
+        """Mark `src` (x, y, w, h) with a dashed box and join it to the detail panel `dst` with two zoom lines."""
+        sx, sy, sw_, sh = src
+        dx, dy, dw, dh = dst
+        dash = ' stroke-dasharray="4 3"' if dashed else ""
+        self.add(f'<rect x="{sx}" y="{sy}" width="{sw_}" height="{sh}" rx="4" fill="none" stroke="{color}" stroke-width="1.2"{dash}/>')
+        if dy >= sy + sh:  # detail below
+            pairs = ((sx, sy + sh, dx, dy), (sx + sw_, sy + sh, dx + dw, dy))
+        elif dx >= sx + sw_:  # detail to the right
+            pairs = ((sx + sw_, sy, dx, dy), (sx + sw_, sy + sh, dx, dy + dh))
+        elif dy + dh <= sy:  # detail above
+            pairs = ((sx, sy, dx, dy + dh), (sx + sw_, sy, dx + dw, dy + dh))
+        else:  # detail to the left
+            pairs = ((sx, sy, dx + dw, dy), (sx, sy + sh, dx + dw, dy + dh))
+        for x0, y0, x1, y1 in pairs:
+            self.add(f'<path d="M{x0} {y0}L{x1} {y1}" fill="none" stroke="{color}" stroke-width="1"{dash}/>')
+
+    def callout(self, ax, ay, lx, ly, s, color=WIRE, size=None, anchor="start"):
+        """Leader line from a point on a render or photo (dot) to an aligned label, as in hardware figures."""
+        size = size or self.fs("label")
+        self.dot(ax, ay, color, 2.6)
+        self.add(f'<path d="M{ax} {ay}L{lx} {ly}" fill="none" stroke="{color}" stroke-width="1" data-qa="ignore"/>')
+        tx = lx + (6 if anchor == "start" else -6)
+        self.text(tx, ly + size * 0.36, s, size=size, color=color, anchor=anchor)
+
+    def hourglass(self, x, y, w, h, role, s=None, size=None, waist=0.45):
+        """Encoder-decoder (U-Net) shape: wide ends, narrow waist."""
+        size = size or self.fs("module")
+        p = PAL[role]
+        m = w * (1 - waist) / 2
+        pts = f"{x},{y} {x + w},{y} {x + w - m},{y + h / 2} {x + w},{y + h} {x},{y + h} {x + m},{y + h / 2}"
+        cid = self.uid("hg")
+        self.add(f'<polygon data-box="{cid}" data-kind="card" points="{pts}" fill="{p.tint}" stroke="{p.accent}" stroke-width="1"/>')
+        if s:
+            self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle")
+        return cid
 
     # -- data sketches -------------------------------------------------------
     def bars(self, x, y, w, h, values, color, gap=2.0, base="#B9B4A8", box=None):
