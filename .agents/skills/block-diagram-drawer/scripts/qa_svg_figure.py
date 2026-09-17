@@ -19,6 +19,15 @@ acceptance. Reported checks:
               --words-per-10k words per 10,000 px^2 of canvas
 - coverage:   share of the canvas covered by cards, chips, thumbnails and text
 - framed:     share covered by stage panels or content
+- tidy:       geometry report, failing only with --strict-tidy: connector ends that
+              stop short of a box edge or run inside one (edgeGap), wires crossing a card
+              they do not attach to (edgeThroughBox), connectors that overlap collinearly
+              (edgeOverlap), peer boxes whose edges or centers nearly line up but miss
+              (misalign), and centered chip labels that sit off-center (offCenter).
+              Reported but never failing: connector crossings, uneven gaps in a run of peers
+              (gapUneven), the median text share of cards, and cards that are almost empty.
+              Peers are boxes of the same kind in the same container, so nested groups and
+              separate columns are not compared with each other
 
 Sizes and word budgets come from measured ICRA / IROS / RSS method figures; see
 references/paper-figure-study.md. Exit code 1 when any check fails.
@@ -108,9 +117,94 @@ strokes.forEach(e=>{
 let cov=0,pcov=0,n=0; const panels=Object.values(boxes).filter(b=>b.kind==='panel');
 const hit=(arr,x,y)=>arr.some(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);
 for(let y=2;y<H;y+=4)for(let x=2;x<W;x+=4){n++; if(hit(solid,x,y)||hit(texts,x,y)) cov++; if(hit(panels,x,y)||hit(solid,x,y)) pcov++;}
+// ---- tidiness: connector anchoring, connector overlap and crossings, alignment, gaps, centering, text fill
+const conns=[...svg.querySelectorAll('path,line,polyline')].filter(e=>!e.closest('symbol,marker,clipPath,defs,[data-qa=ignore]')
+  &&getComputedStyle(e).stroke!=='none'&&(e.getAttribute('marker-end')||e.getAttribute('marker-start')));
+const polys=conns.map(e=>{let L=0; try{L=e.getTotalLength();}catch(_){return null;} if(!L) return null;
+  const pts=[],step=Math.max(2,L/80); for(let d=0;d<L;d+=step){const p=e.getPointAtLength(d); pts.push([p.x,p.y]);}
+  const pe=e.getPointAtLength(L); pts.push([pe.x,pe.y]);
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+  const bb={x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};
+  return {pts,bb,d:(e.getAttribute('d')||e.tagName).slice(0,30)};}).filter(Boolean);
+const outDist=(b,x,y)=>Math.hypot(Math.max(b.x-x,0,x-(b.x+b.w)),Math.max(b.y-y,0,y-(b.y+b.h)));
+const pen=(b,x,y)=>(x<b.x||x>b.x+b.w||y<b.y||y>b.y+b.h)?0:Math.min(x-b.x,b.x+b.w-x,y-b.y,b.y+b.h-y);
+// the smallest box that encloses another is its container; a wire drawn inside its own container is normal
+const encloses=(o,b)=>b.x>=o.x-0.5&&b.y>=o.y-0.5&&b.x+b.w<=o.x+o.w+0.5&&b.y+b.h<=o.y+o.h+0.5&&o.w*o.h>b.w*b.h;
+Object.values(boxes).forEach(b=>{let p=null;
+  Object.values(boxes).forEach(o=>{if(o!==b&&encloses(o,b)&&(!p||o.w*o.h<p.w*p.h)) p=o;});
+  b.parent=p?p.id:'canvas';});
+const edgeGap=[],edgeThroughBox=[];
+polys.forEach(c=>{
+  const ends=[[c.pts[0],'start'],[c.pts[c.pts.length-1],'end']];
+  const obst=solid.filter(b=>!encloses(b,c.bb));
+  ends.forEach(([p,which])=>{
+    let near=1e9,deep=0,anchored=false;
+    solid.forEach(b=>{const o=outDist(b,p[0],p[1]),d=pen(b,p[0],p[1]); if(o<=3.5&&d<=3.5) anchored=true;});
+    obst.forEach(b=>{near=Math.min(near,outDist(b,p[0],p[1])); deep=Math.max(deep,pen(b,p[0],p[1]));});
+    if(deep>3.5&&!anchored) edgeGap.push({end:which,issue:'inside a box',by:+deep.toFixed(1),path:c.d});
+    else if(!anchored&&near>2.5&&near<=14) edgeGap.push({end:which,issue:'short of the edge',gap:+near.toFixed(1),path:c.d});
+  });
+  const attached=b=>ends.some(([p])=>outDist(b,p[0],p[1])<=3.5||pen(b,p[0],p[1])>0);
+  obst.filter(b=>!attached(b)).forEach(b=>{let worst=0;
+    c.pts.forEach(p=>{worst=Math.max(worst,pen(b,p[0],p[1]));});
+    if(worst>2.5) edgeThroughBox.push({box:b.kind+':'+[Math.round(b.x),Math.round(b.y)],by:+worst.toFixed(1),path:c.d});});
+});
+const segsOf=c=>{const out=[]; for(let i=1;i<c.pts.length;i++){const a=c.pts[i-1],b=c.pts[i]; if(Math.hypot(b[0]-a[0],b[1]-a[1])>0.4) out.push([a,b]);} return out;};
+const allSegs=polys.map(segsOf);
+const cross=(p,q,r,s2)=>{const d=(q[0]-p[0])*(s2[1]-r[1])-(q[1]-p[1])*(s2[0]-r[0]); if(Math.abs(d)<1e-9) return false;
+  const t=((r[0]-p[0])*(s2[1]-r[1])-(r[1]-p[1])*(s2[0]-r[0]))/d, u=((r[0]-p[0])*(q[1]-p[1])-(r[1]-p[1])*(q[0]-p[0]))/d;
+  return t>0.02&&t<0.98&&u>0.02&&u<0.98;};
+let crossings=0; const edgeOverlap=[];
+for(let i=0;i<allSegs.length;i++)for(let j=i+1;j<allSegs.length;j++){
+  let hit=false,ov=0;
+  allSegs[i].forEach(a=>allSegs[j].forEach(b=>{
+    if(cross(a[0],a[1],b[0],b[1])) hit=true;
+    const ah=Math.abs(a[0][1]-a[1][1])<0.6, bh=Math.abs(b[0][1]-b[1][1])<0.6;
+    const av=Math.abs(a[0][0]-a[1][0])<0.6, bv=Math.abs(b[0][0]-b[1][0])<0.6;
+    if(ah&&bh&&Math.abs(a[0][1]-b[0][1])<1.5) ov+=Math.max(0,Math.min(Math.max(a[0][0],a[1][0]),Math.max(b[0][0],b[1][0]))-Math.max(Math.min(a[0][0],a[1][0]),Math.min(b[0][0],b[1][0])));
+    if(av&&bv&&Math.abs(a[0][0]-b[0][0])<1.5) ov+=Math.max(0,Math.min(Math.max(a[0][1],a[1][1]),Math.max(b[0][1],b[1][1]))-Math.max(Math.min(a[0][1],a[1][1]),Math.min(b[0][1],b[1][1])));
+  }));
+  if(hit) crossings++;
+  if(ov>8) edgeOverlap.push({a:polys[i].d,b:polys[j].d,overlap:Math.round(ov)});
+}
+const clusters=(vals,tol)=>{const v=[...vals].sort((a,b)=>a-b),out=[]; let cur=[v[0]];
+  for(let i=1;i<v.length;i++){ if(v[i]-cur[cur.length-1]<=tol) cur.push(v[i]); else {out.push(cur); cur=[v[i]];}} if(v.length) out.push(cur); return out;};
+// peers are boxes of the same kind in the same container; only peers are expected to line up or share gaps
+const peers={}; solid.forEach(b=>{const k=b.parent+'|'+b.kind; (peers[k]=peers[k]||[]).push(b);});
+const misalign=[];
+Object.values(peers).filter(bs=>bs.length>1).forEach(bs=>{
+  [['left',b=>b.x],['right',b=>b.x+b.w],['center x',b=>b.x+b.w/2],['top',b=>b.y],['bottom',b=>b.y+b.h],['center y',b=>b.y+b.h/2]]
+   .forEach(([axis,f])=>clusters(bs.map(f),4).forEach(c=>{const spread=c[c.length-1]-c[0];
+     if(c.length>1&&spread>0.6) misalign.push({axis,at:+c[0].toFixed(1),spread:+spread.toFixed(1),boxes:c.length});}));});
+const gapUneven=[];
+[['row',b=>b.y+b.h/2,b=>b.x,b=>b.x+b.w],['column',b=>b.x+b.w/2,b=>b.y,b=>b.y+b.h]].forEach(([kind,key,lo,hi])=>{
+  const groups={}; solid.forEach(b=>{const k=b.parent+'|'+b.kind+'|'+Math.round(key(b)/4)*4; (groups[k]=groups[k]||[]).push(b);});
+  Object.values(groups).forEach(g=>{ if(g.length<3) return; const bs=g.slice().sort((a,b)=>lo(a)-lo(b));
+    const gaps=[]; for(let i=1;i<bs.length;i++) gaps.push(+(lo(bs[i])-hi(bs[i-1])).toFixed(1));
+    if(gaps.some(v=>v<0)) return;
+    const med=[...gaps].sort((a,b)=>a-b)[Math.floor(gaps.length/2)];
+    let run=[gaps[0]]; const runs=[run];                      // a gap far above the median ends the run
+    for(let i=1;i<gaps.length;i++){ if(gaps[i]>2.5*med||gaps[i]*2.5<med){run=[gaps[i]]; runs.push(run);} else run.push(gaps[i]); }
+    runs.filter(r=>r.length>1).forEach(r=>{ const span=Math.max(...r)-Math.min(...r);
+      if(span>2) gapUneven.push({kind,at:Math.round(key(bs[0])),gaps:r});});});
+});
+const offCenter=[];
+textEls.forEach((t,i)=>{ if(t.getAttribute('text-anchor')!=='middle') return; const B=boxes[t.dataset.in];
+  if(!B||B.kind!=='chip'||texts.filter(x=>x!==texts[i]).length===0) return;
+  const off=(texts[i].x+texts[i].w/2)-(B.x+B.w/2); if(Math.abs(off)>3) offCenter.push({s:texts[i].s,off:+off.toFixed(1)});});
+const fills=[]; const emptyBoxes=[];
+Object.values(boxes).filter(b=>['card','chip','example'].includes(b.kind)).forEach(b=>{
+  const area=b.w*b.h; if(area<400) return;
+  const inked=texts.filter(t=>t.x>=b.x-1&&t.y>=b.y-1&&t.x+t.w<=b.x+b.w+1&&t.y+t.h<=b.y+b.h+1).reduce((s2,t)=>s2+t.w*t.h,0);
+  const others=Object.values(boxes).filter(o=>o!==b&&o.x>=b.x-1&&o.y>=b.y-1&&o.x+o.w<=b.x+b.w+1&&o.y+o.h<=b.y+b.h+1);
+  const ratio=inked/area; fills.push(+ratio.toFixed(3));
+  if(ratio<0.08&&!others.length) emptyBoxes.push({kind:b.kind,at:[Math.round(b.x),Math.round(b.y)],fill:+ratio.toFixed(3)});});
+fills.sort((a,b)=>a-b);
+const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,
+  textFillMedian:fills.length?fills[Math.floor(fills.length/2)]:null,emptyBoxes};
 const wordBudget=Math.round(__WORDS_PER_10K__*W*H/10000);
 const out={size:[W,H],texts:texts.length,printWidthPt:PRINT,minFontPx:+MIN_FONT.toFixed(1),overflow,collide,boxOverlap,lineText,smallText,longText,
-  words,wordBudget,coverage:+(cov/n).toFixed(3),framed:+(pcov/n).toFixed(3)};
+  words,wordBudget,tidy,coverage:+(cov/n).toFixed(3),framed:+(pcov/n).toFixed(3)};
 const pre=document.createElement('pre'); pre.id='qa'; pre.textContent=JSON.stringify(out); document.body.appendChild(pre);
 """
 
@@ -162,8 +256,14 @@ def render_png(svg_path: Path, size: list[float], browser: str, scale: int = 2) 
     return out
 
 
-def failures(report: dict, min_coverage: float) -> list[str]:
+TIDY_CHECKS = ("edgeGap", "edgeThroughBox", "edgeOverlap", "misalign", "offCenter")
+TIDY_REPORTS = ("gapUneven", "crossings", "emptyBoxes")  # judgement calls, printed but never failing
+
+
+def failures(report: dict, min_coverage: float, strict_tidy: bool = False) -> list[str]:
     failed = [f"{key}={len(report[key])}" for key in CHECKS if report[key]]
+    if strict_tidy:
+        failed += [f"tidy.{key}={len(report['tidy'][key])}" for key in TIDY_CHECKS if report.get("tidy", {}).get(key)]
     if "words" in report and report["words"] > report["wordBudget"]:
         failed.append(f"words={report['words']} > budget {report['wordBudget']}")
     if report["coverage"] < min_coverage:
@@ -185,6 +285,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="label word budget per 10,000 px^2 of canvas, outside example content")
     parser.add_argument("--min-font", type=float, default=None,
                         help="legacy: smallest label size in px at 1400 px width; replaces --min-pt when given")
+    parser.add_argument("--strict-tidy", action="store_true",
+                        help="also fail on the tidy geometry checks (connector anchoring, alignment, gaps, centering)")
     args = parser.parse_args(argv)
 
     browser = find_browser()
@@ -192,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
                      args.words_per_10k)
     if args.png:
         report["png"] = str(render_png(args.svg, report["size"], browser))
-    failed = failures(report, args.min_coverage)
+    failed = failures(report, args.min_coverage, args.strict_tidy)
     report["pass"] = not failed
 
     if args.json:
@@ -205,6 +307,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {key}: {len(report[key])}")
             for item in report[key][:40]:
                 print("    " + json.dumps(item, ensure_ascii=False))
+        tidy = report.get("tidy", {})
+        if tidy:
+            print(f"  tidy: {tidy['connectors']} connectors, {tidy['crossings']} crossings, "
+                  f"text fill {tidy['textFillMedian']}")
+            for key in TIDY_CHECKS + ("gapUneven", "emptyBoxes"):
+                items = tidy.get(key) or []
+                if items:
+                    print(f"    {key}: {len(items)}")
+                    for item in items[:10]:
+                        print("      " + json.dumps(item, ensure_ascii=False))
         print("PASS" if not failed else "FAIL: " + ", ".join(failed))
     return 0 if not failed else 1
 

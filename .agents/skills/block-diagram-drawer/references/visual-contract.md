@@ -151,6 +151,21 @@ Method-specific structure (graphs, token rows, kinematic chains, curves) stays a
 - Diamond or two-segment pill only for an explicit decision; label branches in serif italic (`yes`, `no`) or monospace (`accept`, `override`).
 - No connector may cross a label; move the label or reroute, then rerun QA.
 
+### 6.1 Geometry: compute the grid, anchor every wire
+
+Tidiness is what separates a drawn figure from a typed one, and it is mechanical, so let the kit compute it instead of typing coordinates.
+Published figures read as tidy because equivalent things share an edge, peers share a gap, and every wire starts and ends exactly on a box.
+
+- Derive the grid with `cols`, `rows` and `place` instead of hand-typed x and y values, so columns, rows and gutters are exact by construction and a later edit cannot drift by a pixel.
+- Give boxes that belong to one row the same height, and boxes that belong to one column the same width; a 2 px difference between two cards in the same row is visible and is what the gate reports as `misalign`.
+- Anchor every arrow with `connect`, `bus`, `arc` or `route`, which take container ids and compute the ports; a hand-typed path is only acceptable for a wire that starts at a brace, a sketch or a circled step, and then it should still end on a port from `port()`.
+- `connect` draws a straight line when the two ports line up and an orthogonal elbow otherwise; pass `ta=None` or `tb=None` to let one end follow the other box's port, which is how a tall container meets a short card head-on.
+- Use `bus` for one source feeding several targets (a stem, one trunk, one arrow per target) rather than several long arrows leaving the same edge.
+- Use `arc` for a short feedback bend and `route` for a feedback path that has to wrap around content through a reserved lane; keep the lane in a gutter or inside the panel's padding, never over a card.
+- Register an invisible `zone` when a row has no card of its own (a numbered step, a label column), so its connectors are anchored like everything else.
+- Give the arrowheads of parallel relations the same fractions along the shared edges (`ta`, `tb`), so a bundle of edges stays parallel and evenly spaced.
+- Curves are allowed, straight lines are allowed, but overlapping wires and ends that miss their box are not; `--strict-tidy` turns those into failures.
+
 ## 7. Workflow
 
 1. Write the content inventory: inputs, stages, contribution, outputs, every label and number, and which parts may only be schematic.
@@ -165,6 +180,10 @@ Method-specific structure (graphs, token rows, kinematic chains, curves) stays a
 
 The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, strokes crossing uncovered labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget, or coverage below the threshold.
 Every limit has a flag (`--min-pt`, `--print-width-pt`, `--max-words`, `--words-per-10k`, `--min-coverage`); relax one only deliberately and report why.
+The gate also prints a geometry report (`tidy`) that measures what "tidy" usually means by eye: connector ends that stop short of a box edge or die inside one (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), collinear wires lying on top of each other (`edgeOverlap`), peer boxes whose edges or centers nearly line up but miss (`misalign`), and centered labels that sit off-center in their chip (`offCenter`).
+`--strict-tidy` turns those five into failures and is the right setting for a figure that goes into a paper.
+Connector crossings, uneven gaps in a run of peers (`gapUneven`), the median text share of cards, and near-empty cards are printed but never fail, because a column keyed to rows of different heights and a deliberate crossing are legitimate.
+Peers in these checks are boxes of the same kind inside the same container, so nested groups and separate columns are never compared with each other.
 QA cannot judge semantics, arrow direction, icon fit, misleading sketches, font fallback, or aesthetic balance, so the rendered PNG must still be inspected.
 Link every text element to its container with `box=` so overflow is checked; freestanding labels are still covered by the collision and line checks.
 
@@ -205,7 +224,15 @@ Link every text element to its container with `box=` so overflow is checked; fre
 | `chip`, `badge`, `pill`, `step` | small labeled containers, quiet number tags, connector labels, circled step numbers |
 | `text(x, y, s, size, weight, color, anchor, box=id, family="sans", italic=False)` | rich text with `$math$`; `family` is `sans`, `serif`, or `mono` |
 | `tokens`, `trapezoid`, `bracket`, `cylinder`, `bubble`, `block_arrow` | shapes with meaning (section 4.4) |
-| `arrow(d, color=WIRE, dashed, start, end, open_)`, `line`, `dot`, `brace` | connectors |
+| `cols(x0, x1, n, gap)`, `rows(y0, y1, n, gap)` | n equal columns or rows with equal gaps, snapped to whole pixels |
+| `place(x0, x1, widths, gap=None)` | x positions for a run of given widths: equal gaps, run centered |
+| `zone(x, y, w, h)` | invisible rectangle registered for layout and ports (a step row, a reserved lane) |
+| `rect(id)`, `port(id, side, t=0.5, out=0)` | a container's rectangle, and an exact point on one of its edges |
+| `connect(a, b, sides=None, ta=.5, tb=.5, mid=None, label=None, knockout=False)` | anchored arrow: straight when the ports line up, else an orthogonal elbow; `ta=None` follows the other box |
+| `bus(src, targets, side="bottom", at=None)` | stem plus one trunk plus one arrow per target |
+| `arc(a, b, sides=None, bulge=40, label=None)` | one quadratic feedback bend; the label sits outside the bend |
+| `route(a, b, lanes, sides=None, label=None, label_seg=None)` | orthogonal feedback path that wraps through reserved lanes |
+| `arrow(d, color=WIRE, dashed, start, end, open_)`, `line`, `dot`, `brace` | raw connectors for wires that start at a brace or sketch |
 | `scene(x, y, w, h, frame)` | schematic tabletop thumbnail |
 | `bars`, `curves`, `strip` | schematic data sketches |
 | `asset(path, x, y, size, color, sw=1.5)` | vendored open-source SVG icon or logo as a shared symbol with a QA box |

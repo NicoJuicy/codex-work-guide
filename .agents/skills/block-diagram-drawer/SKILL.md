@@ -43,7 +43,8 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - Draw a hierarchy as stacked group containers with the title inside each container, as Kimera, RoboMatrix and LLM3 do; do not build full-width bands with a separate header column of descriptions and a column of notes, because that reads as documentation, not as a paper figure.
 - Split a two-part figure into panels `(a)` and `(b)` with short titles, optionally separated by a thin vertical rule.
 - Use 8 px outer margins and 8 to 12 px gutters, share column positions across rows, and keep the figure title out of the canvas.
-- Write the grid down as numbers (panel x-ranges, row y-ranges, card rectangles) before writing code.
+- Write the grid down as numbers (panel x-ranges, row y-ranges, card rectangles) before writing code, then express it in code with `f.cols`, `f.rows` and `f.place` instead of typed coordinates, so gutters and columns stay exact through every later edit.
+- Keep one height per row and one width per column; when a row of peers needs different heights, it is two rows, not one sloppy one.
 
 ### 3. Assign roles, then draw
 
@@ -54,16 +55,22 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - Give each concept one color role, keep it across every figure of the same report, and use two to four fills per figure.
 - Emphasize one key module, either with a stronger fill or with `key=True`; do not outline a whole path.
 - Label edges where they are drawn (relation names in mono, flow labels in serif italic) and keep any legend to four entries in a corner.
+- Draw every arrow with `f.connect`, `f.bus`, `f.arc` or `f.route` so both ends sit exactly on a port: `connect` for a flow (straight when the ports line up, an elbow otherwise, `ta=None` to meet a short card head-on), `bus` for one source feeding several targets, `arc` for a short feedback bend, `route` for a loop that wraps around content through a reserved lane.
+- Reach for `f.zone` when a row has no card of its own, and keep hand-typed paths for wires that start at a brace, a sketch or a circled step.
+- Curves and straight lines are both fine, but no wire may overlap another, cross a card it does not attach to, or stop short of its box.
 - Use bold only for panel titles and key words, medium weight for module names, serif italic for data names and language, monospace for tokens, identifiers and code, and `$...$` for every symbol.
 - Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces, block arrows between stages) and vendored open-source icons for recognizable objects and named products.
 - Pass `box=` for every label inside a container so the gate can check overflow and exempt example content.
 
 ### 4. Gate, look, fix, repeat
 
-Run the QA gate after every edit.
+Run the QA gate after every edit, and add `--strict-tidy` for any figure that goes into a paper.
 By default it fails on overflow, collisions, box overlaps, lines through labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget (1 word per 10,000 px², about 70 words at 1400 by 500), and coverage below 0.40.
 When text does not fit, cut words and move explanations to the caption first, then enlarge boxes or the canvas; never shrink type below `f.fs("min")`.
 Relax a limit only on purpose (`--words-per-10k`, `--max-words`, `--min-coverage`), and report the measured value and the reason to the user.
+The `tidy` block measures what a reader calls tidy: `--strict-tidy` fails on connector ends that miss their box (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), overlapping wires (`edgeOverlap`), peer boxes that nearly line up but miss (`misalign`), and off-center chip labels (`offCenter`).
+Fix a `misalign` by making the two boxes share the number, not by nudging one of them.
+`gapUneven`, `crossings`, the text fill and near-empty cards are hints: read them, then decide.
 Passing the gate is necessary, not sufficient, so always open the PNG and inspect it, including crops around dense cards, math, and connectors.
 Compare the PNG with two or three figures from `references/paper-figure-study.md` at the same scale: if it has more words, smaller type, or more boxes than they do, simplify before delivering.
 Check that serif and monospace labels really render in those families, that arrows point the right way, and that no sketch implies data the source does not have.

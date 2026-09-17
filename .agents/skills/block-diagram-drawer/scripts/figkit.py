@@ -418,6 +418,7 @@ class Fig:
         self.print_width_pt = print_width_pt or (TEXT_WIDTH_PT if w >= 1000 else COLUMN_WIDTH_PT)
         self.defs: dict[str, str] = {}
         self.body: list[str] = []
+        self.rects: dict[str, tuple[float, float, float, float]] = {}  # box id -> (x, y, w, h), for ports and layout
         self._n = 0
         self._assets: dict[str, SvgAsset] = {}
 
@@ -426,6 +427,54 @@ class Fig:
         """Font size in canvas px that prints at the measured paper size for `role`
         (min, label, module, title, hero)."""
         return round(TYPE_PT[role] * self.w / self.print_width_pt, 1)
+
+    def _reg(self, cid: str, x, y, w, h) -> str:
+        """Remember a container's rectangle so ports, connectors and layout helpers can use it."""
+        self.rects[cid] = (float(x), float(y), float(w), float(h))
+        return cid
+
+    def rect(self, box: str) -> tuple[float, float, float, float]:
+        """(x, y, w, h) of a container returned by panel, card, chip, example, image, scene and friends."""
+        if box not in self.rects:
+            raise KeyError(f"unknown box {box!r}; only containers register a rectangle")
+        return self.rects[box]
+
+    # -- layout grid ---------------------------------------------------------
+    def cols(self, x0, x1, n, gap=12) -> list[tuple[float, float]]:
+        """Split [x0, x1] into n equal columns with equal gaps, snapped to whole pixels.
+
+        Returns [(x, w), ...]. Using it instead of hand-typed coordinates keeps columns and gaps exact,
+        which is what makes a figure read as tidy.
+        """
+        if n < 1:
+            raise ValueError("n must be at least 1")
+        w = (x1 - x0 - gap * (n - 1)) / n
+        if w <= 0:
+            raise ValueError(f"{n} columns with {gap} px gaps do not fit in {x1 - x0} px")
+        return [(round(x0 + i * (w + gap)), round(w)) for i in range(n)]
+
+    def rows(self, y0, y1, n, gap=12) -> list[tuple[float, float]]:
+        """Split [y0, y1] into n equal rows with equal gaps, snapped to whole pixels."""
+        return self.cols(y0, y1, n, gap)
+
+    def place(self, x0, x1, widths, gap=None) -> list[float]:
+        """x positions for the given widths inside [x0, x1]: equal gaps, whole run centered."""
+        widths = list(widths)
+        n = len(widths)
+        total = sum(widths)
+        if gap is None:
+            gap = (x1 - x0 - total) / (n - 1) if n > 1 else 0
+        start = x0 + max(0.0, (x1 - x0 - total - gap * (n - 1)) / 2)
+        out, x = [], start
+        for w in widths:
+            out.append(round(x))
+            x += w + gap
+        return out
+
+    def zone(self, x, y, w, h) -> str:
+        """Register an invisible rectangle so `connect`, `route`, `arc` and `port` can anchor to a row or
+        band that has no card of its own (a numbered step, a label column, a reserved lane)."""
+        return self._reg(self.uid("z"), x, y, w, h)
 
     def uid(self, prefix: str) -> str:
         self._n += 1
@@ -503,6 +552,7 @@ class Fig:
         else:
             body = f'fill="{fill or _mix(p.tint, "#FFFFFF", 0.45)}" stroke="none"'
         self.add(f'<rect data-box="{bid}" data-kind="panel" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" {body}/>')
+        self._reg(bid, x, y, w, h)
         if not title:
             return y + 10
         title_size = title_size or self.fs("title")
@@ -534,6 +584,7 @@ class Fig:
                      f'stroke="{st}" stroke-opacity="0.45" stroke-width="{sw}"/>')
         self.add(f'<rect data-box="{cid}" data-kind="{kind}" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" '
                  f'fill="{fl}" stroke="{st}" stroke-width="{sw}"{dash}/>')
+        self._reg(cid, x, y, w, h)
         if topbar and p:
             self.add(f'<path d="M{x + r} {y + 1.5}H{x + w - r}" stroke="{p.accent}" stroke-width="3" stroke-linecap="round"/>')
         return cid
@@ -562,6 +613,7 @@ class Fig:
         cid = self.uid("b")
         self.add(f'<rect data-box="{cid}" data-kind="chip" x="{x}" y="{y}" width="{w:.1f}" height="{h}" rx="3" fill="{p.tint}" '
                  f'stroke="{p.mid}" stroke-width="0.8"/>')
+        self._reg(cid, x, y, w, h)
         self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, weight=700, color=p.deep, anchor="middle", box=cid)
         return w
 
@@ -574,6 +626,7 @@ class Fig:
         cid = self.uid("p")
         self.add(f'<rect data-box="{cid}" data-kind="chip" x="{cx - w / 2:.1f}" y="{cy - h / 2}" width="{w:.1f}" height="{h}" '
                  f'rx="3" fill="{fill}"/>')
+        self._reg(cid, cx - w / 2, cy - h / 2, w, h)
         self.text(cx, cy + size * 0.34, s, size=size, color=p.deep, anchor="middle", box=cid, weight=weight,
                   italic=italic, family=family)
         return w
@@ -608,6 +661,7 @@ class Fig:
                else f"{x},{y} {x + w},{y} {x + w - d},{y + h} {x + d},{y + h}")
         cid = self.uid("t")
         self.add(f'<polygon data-box="{cid}" data-kind="card" points="{pts}" fill="{p.tint}" stroke="{p.accent}" stroke-width="1"/>')
+        self._reg(cid, x, y, w, h)
         if s:
             self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid,
                       family=family, italic=italic)
@@ -629,6 +683,7 @@ class Fig:
             f'A{w / 2} {ry} 0 0 1 {x} {y + h - ry}Z" fill="{p.tint}" stroke="{p.accent}" stroke-width="1"/>'
         )
         self.add(f'<path d="M{x} {y + ry}A{w / 2} {ry} 0 0 0 {x + w} {y + ry}" fill="none" stroke="{p.accent}" stroke-width="1"/>')
+        self._reg(cid, x, y, w, h)
         if s:
             self.text(x + w / 2, y + h / 2 + ry / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid,
                       family=family, italic=italic)
@@ -661,6 +716,7 @@ class Fig:
                  f"H{x + r}A{r} {r} 0 0 1 {x} {y + h - r}V{y + r}A{r} {r} 0 0 1 {x + r} {y}Z")
         cid = self.uid("bb")
         self.add(f'<path data-box="{cid}" data-kind="example" d="{d}" fill="#FFFFFF" stroke="{stroke or p.accent}" stroke-width="1.1"/>')
+        self._reg(cid, x, y, w, h)
         self.text(x + w / 2, cy + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid, family=family,
                   italic=italic, weight=weight)
         return cid
@@ -711,7 +767,7 @@ class Fig:
         cid = self.uid("img")
         stroke = f'stroke="{frame}" stroke-width="1"' if frame else 'stroke="none"'
         self.add(f'<rect data-box="{cid}" data-kind="thumb" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="none" {stroke}/>')
-        return cid
+        return self._reg(cid, x, y, w, h)
 
     def scene(self, x, y, w, h, frame=None, marker=None):
         if "scene" not in self.defs:
@@ -722,7 +778,7 @@ class Fig:
         self.add(f'<g clip-path="url(#{clip})"><use href="#scene" x="{x}" y="{y}" width="{w}" height="{h}" preserveAspectRatio="xMidYMid slice"/></g>')
         self.add(f'<rect data-box="{cid}" data-kind="thumb" x="{x}" y="{y}" width="{w}" height="{h}" rx="2" fill="none" '
                  f'stroke="{frame or "#B9B4A8"}" stroke-width="1"/>')
-        return cid
+        return self._reg(cid, x, y, w, h)
 
     def arrow(self, d, color=WIRE, sw=1.3, dashed=False, start=False, end=True, head=7.0, opacity=None, open_=False):
         mk = self._marker(color, head, open_)
@@ -736,6 +792,211 @@ class Fig:
         if opacity is not None:
             attrs += f' stroke-opacity="{opacity}"'
         self.add(f"<path {attrs}/>")
+
+    # -- ports and tidy connectors -------------------------------------------
+    def port(self, box, side, t=0.5, out=0.0) -> tuple[float, float]:
+        """A point on a container's edge. `side` is left, right, top or bottom, `t` the fraction along that
+        edge (0.5 is the middle) and `out` an outward offset, so an arrowhead can stop just off the stroke."""
+        x, y, w, h = self.rect(box)
+        if side == "left":
+            return (x - out, y + h * t)
+        if side == "right":
+            return (x + w + out, y + h * t)
+        if side == "top":
+            return (x + w * t, y - out)
+        if side == "bottom":
+            return (x + w * t, y + h + out)
+        raise ValueError("side must be left, right, top or bottom")
+
+    @staticmethod
+    def _auto_sides(ra, rb) -> tuple[str, str]:
+        ax, ay = ra[0] + ra[2] / 2, ra[1] + ra[3] / 2
+        bx, by = rb[0] + rb[2] / 2, rb[1] + rb[3] / 2
+        if abs(bx - ax) >= abs(by - ay):
+            return ("right", "left") if bx >= ax else ("left", "right")
+        return ("bottom", "top") if by >= ay else ("top", "bottom")
+
+    def connect(self, a, b, sides=None, color=WIRE, sw=1.4, dashed=False, open_=False, start=False, head=7.5,
+                ta=0.5, tb=0.5, gap=1.0, mid=None, label=None, label_color=None, label_size=None,
+                label_family="serif", knockout=False):
+        """Arrow between two containers, anchored exactly on their edges.
+
+        Sides are chosen from the boxes' relative position unless given as (from_side, to_side). The path is
+        a straight line when the two ports line up, otherwise an orthogonal elbow through `mid` (the shared
+        x for a left-right pair, the shared y for a top-bottom pair). `label` is placed beside the longest
+        segment, or on it with a white knock-out when knockout=True. Returns the path data.
+
+        `ta=None` (or `tb=None`) leaves that end free so it lines up with the other box's port, which is how
+        a tall container connects straight to a short card without hand-computing the fraction.
+        """
+        ra, rb = self.rect(a), self.rect(b)
+        sa, sb = sides or self._auto_sides(ra, rb)
+        x0, y0 = self.port(a, sa, 0.5 if ta is None else ta, out=gap)
+        x1, y1 = self.port(b, sb, 0.5 if tb is None else tb, out=gap)
+        horiz_a, horiz_b = sa in ("left", "right"), sb in ("left", "right")
+        if ta is None:
+            if horiz_a:
+                y0 = min(max(y1, ra[1]), ra[1] + ra[3])
+            else:
+                x0 = min(max(x1, ra[0]), ra[0] + ra[2])
+        if tb is None:
+            if horiz_b:
+                y1 = min(max(y0, rb[1]), rb[1] + rb[3])
+            else:
+                x1 = min(max(x0, rb[0]), rb[0] + rb[2])
+        if horiz_a and horiz_b:
+            if abs(y1 - y0) < 0.75:
+                d, seg = f"M{x0:.1f} {y0:.1f}H{x1:.1f}", ((x0, y0), (x1, y0), "h")
+            else:
+                mx = mid if mid is not None else round((x0 + x1) / 2)
+                d = f"M{x0:.1f} {y0:.1f}H{mx:.1f}V{y1:.1f}H{x1:.1f}"
+                seg = ((mx, y0), (mx, y1), "v")
+        elif not horiz_a and not horiz_b:
+            if abs(x1 - x0) < 0.75:
+                d, seg = f"M{x0:.1f} {y0:.1f}V{y1:.1f}", ((x0, y0), (x0, y1), "v")
+            else:
+                my = mid if mid is not None else round((y0 + y1) / 2)
+                d = f"M{x0:.1f} {y0:.1f}V{my:.1f}H{x1:.1f}V{y1:.1f}"
+                seg = ((x0, my), (x1, my), "h")
+        elif horiz_a:
+            d, seg = f"M{x0:.1f} {y0:.1f}H{x1:.1f}V{y1:.1f}", ((x0, y0), (x1, y0), "h")
+        else:
+            d, seg = f"M{x0:.1f} {y0:.1f}V{y1:.1f}H{x1:.1f}", ((x0, y0), (x0, y1), "v")
+        self.arrow(d, color, sw, dashed=dashed, open_=open_, start=start, head=head)
+        if label:
+            (sx, sy), (ex, ey), kind = seg
+            size = label_size or self.fs("min")
+            mxp, myp = (sx + ex) / 2, (sy + ey) / 2
+            if knockout:
+                self.pill(mxp, myp, label, size=size, family=label_family, italic=label_family == "serif")
+            elif kind == "h":
+                self.text(mxp, myp - 7, label, size=size, color=label_color or MUTED, anchor="middle",
+                          family=label_family, italic=label_family == "serif")
+            else:
+                self.text(mxp + 8, myp + size * 0.36, label, size=size, color=label_color or MUTED,
+                          family=label_family, italic=label_family == "serif")
+        return d
+
+    def bus(self, src, targets, side="bottom", at=None, color=WIRE, sw=1.3, head=6.5, ta=0.5, gap=1.0):
+        """Fork one container into several with a shared trunk: a stem, one trunk line, one arrow per target.
+
+        `side` is the side of `src` the stem leaves from; the trunk sits at `at` (a y for bottom/top, an x
+        for left/right) or halfway between the boxes. Tidier than one long arrow per target.
+        """
+        sx, sy = self.port(src, side, ta, out=gap)
+        rects = [self.rect(t) for t in targets]
+        if side in ("bottom", "top"):
+            face = "top" if side == "bottom" else "bottom"
+            edge = min(r[1] for r in rects) if side == "bottom" else max(r[1] + r[3] for r in rects)
+            trunk = at if at is not None else round((sy + edge) / 2)
+            xs = [r[0] + r[2] / 2 for r in rects]
+            self.line(f"M{sx:.1f} {sy:.1f}V{trunk:.1f}", color, sw)
+            self.line(f"M{min(xs + [sx]):.1f} {trunk:.1f}H{max(xs + [sx]):.1f}", color, sw)
+            self.dot(sx, trunk, color, 2.4)
+            for t, x in zip(targets, xs):
+                tx, ty = self.port(t, face, 0.5, out=gap)
+                self.arrow(f"M{x:.1f} {trunk:.1f}V{ty:.1f}", color, sw, head=head)
+        else:
+            face = "left" if side == "right" else "right"
+            edge = min(r[0] for r in rects) if side == "right" else max(r[0] + r[2] for r in rects)
+            trunk = at if at is not None else round((sx + edge) / 2)
+            ys = [r[1] + r[3] / 2 for r in rects]
+            self.line(f"M{sx:.1f} {sy:.1f}H{trunk:.1f}", color, sw)
+            self.line(f"M{trunk:.1f} {min(ys + [sy]):.1f}V{max(ys + [sy]):.1f}", color, sw)
+            self.dot(trunk, sy, color, 2.4)
+            for t, y in zip(targets, ys):
+                tx, ty = self.port(t, face, 0.5, out=gap)
+                self.arrow(f"M{trunk:.1f} {y:.1f}H{tx:.1f}", color, sw, head=head)
+        return trunk
+
+    def arc(self, a, b, sides=None, bulge=40, color=FAINT, sw=1.3, dashed=True, head=7.0, label=None,
+            label_color=None, label_size=None, ta=0.5, tb=0.5, gap=1.0, knockout=False):
+        """Curved connector for a feedback or return path: one quadratic bend of `bulge` px, sign picks the side.
+
+        A label sits just outside the bend, never on the curve, and flips to the inside when the outside
+        would leave the canvas; `knockout=True` puts it on the apex in a white pill instead.
+        """
+        ra, rb = self.rect(a), self.rect(b)
+        sa, sb = sides or self._auto_sides(ra, rb)
+        x0, y0 = self.port(a, sa, ta, out=gap)
+        x1, y1 = self.port(b, sb, tb, out=gap)
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        dx, dy = x1 - x0, y1 - y0
+        length = max(1e-6, (dx * dx + dy * dy) ** 0.5)
+        nx, ny = -dy / length, dx / length
+        cx, cy = mx + nx * bulge, my + ny * bulge
+        self.arrow(f"M{x0:.1f} {y0:.1f}Q{cx:.1f} {cy:.1f} {x1:.1f} {y1:.1f}", color, sw, dashed=dashed, head=head)
+        if label:
+            size = label_size or self.fs("min")
+            apex = ((mx + cx) / 2, (my + cy) / 2)
+            if knockout:
+                self.pill(apex[0], apex[1], label, size=size, family="serif", italic=True)
+            else:
+                out = (size * 0.9 + 4) * (1 if bulge >= 0 else -1)
+                lx, ly = apex[0] + nx * out, apex[1] + ny * out
+                half = text_w(label, size) / 2
+                if lx - half < 4 or lx + half > self.w - 4 or ly - size < 4 or ly + size > self.h - 4:
+                    lx, ly = apex[0] - nx * out, apex[1] - ny * out
+                self.text(lx, ly + size * 0.36, label, size=size, color=label_color or MUTED, anchor="middle",
+                          family="serif", italic=True)
+        return (cx, cy)
+
+    def route(self, a, b, lanes, sides=None, color=WIRE, sw=1.4, dashed=False, open_=False, start=False,
+              head=7.5, ta=0.5, tb=0.5, gap=1.0, label=None, label_color=None, label_size=None,
+              label_family="serif", label_seg=None, knockout=False):
+        """Orthogonal connector that wraps around content through explicit lanes.
+
+        `lanes` holds one coordinate per bend, alternating with the direction the wire leaves `a`: a y for a
+        top or bottom departure, an x for a left or right one. The wire always arrives perpendicular to b's
+        side, so a feedback path around a column is
+        `route(last, first, (lane_y, lane_x), sides=("bottom", "left"))`.
+        `label_seg` picks which segment carries the label (default the longest). Returns the path data.
+        """
+        ra, rb = self.rect(a), self.rect(b)
+        sa, sb = sides or self._auto_sides(ra, rb)
+        x0, y0 = self.port(a, sa, ta, out=gap)
+        x1, y1 = self.port(b, sb, tb, out=gap)
+        cur = [x0, y0]
+        parts, segs = [f"M{x0:.1f} {y0:.1f}"], []
+
+        def step(val, vertical):
+            if abs(val - cur[1 if vertical else 0]) < 0.4:
+                return
+            p0 = (cur[0], cur[1])
+            if vertical:
+                cur[1] = val
+                parts.append(f"V{val:.1f}")
+            else:
+                cur[0] = val
+                parts.append(f"H{val:.1f}")
+            segs.append((p0, (cur[0], cur[1]), "v" if vertical else "h"))
+
+        vertical = sa in ("top", "bottom")
+        for i, v in enumerate(lanes):
+            step(v, vertical if i % 2 == 0 else not vertical)
+        if sb in ("left", "right"):
+            step(y1, True)
+            step(x1, False)
+        else:
+            step(x1, False)
+            step(y1, True)
+        d = "".join(parts)
+        self.arrow(d, color, sw, dashed=dashed, open_=open_, start=start, head=head)
+        if label and segs:
+            i = label_seg if label_seg is not None else max(
+                range(len(segs)), key=lambda k: abs(segs[k][1][0] - segs[k][0][0]) + abs(segs[k][1][1] - segs[k][0][1]))
+            (sx, sy), (ex, ey), kind = segs[i]
+            size = label_size or self.fs("min")
+            mxp, myp = (sx + ex) / 2, (sy + ey) / 2
+            if knockout:
+                self.pill(mxp, myp, label, size=size, family=label_family, italic=label_family == "serif")
+            elif kind == "h":
+                self.text(mxp, myp - 7, label, size=size, color=label_color or MUTED, anchor="middle",
+                          family=label_family, italic=label_family == "serif")
+            else:
+                self.text(mxp + 8, myp + size * 0.36, label, size=size, color=label_color or MUTED,
+                          family=label_family, italic=label_family == "serif")
+        return d
 
     def dot(self, x, y, color=WIRE, r=2.4):
         self.add(f'<circle cx="{x}" cy="{y}" r="{r}" fill="{color}"/>')

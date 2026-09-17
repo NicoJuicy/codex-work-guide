@@ -27,6 +27,8 @@ B, P, R, G, O, Y = (PAL[k] for k in ("blue", "purple", "red", "green", "orange",
 
 f = Fig(1400, 500)
 LABEL, MODULE, SMALL = f.fs("label"), f.fs("module"), f.fs("min")
+PANEL_W = (232, 250, 438, 386)
+PA, PB, PC, PD = f.place(8, 1392, PANEL_W, gap=26)  # equal gutters, exact panel x positions
 
 
 def name(x, y, s, color=INK, box=None, anchor="start"):
@@ -38,7 +40,7 @@ def schematic(x, y, box):
 
 
 # ---------------------------------------------------------------- (a) inputs
-top = f.panel(8, 8, 232, 484, "gray", "(a) Inputs", dashed=True)
+top = f.panel(PA, 8, PANEL_W[0], 484, "gray", "(a) Inputs", dashed=True)
 for k, (label, sym) in enumerate((("view 1", "$x^{(1)}$"), ("view 2", "$x^{(2)}$"))):
     y = top + 6 + 136 * k
     c = f.card(18, y, 212, 128, fill="#FFFFFF", stroke=HAIR)
@@ -56,9 +58,10 @@ schematic(124, top + 402, c)
 f.brace(244, 60, 476, color="#A8A39A", depth=12)
 
 # ---------------------------------------------------------------- (b) shared encoder
-top = f.panel(266, 8, 250, 484, "blue", "(b) Shared encoder")
-f.arrow("M258 268H276", WIRE)
-c = f.card(278, top + 6, 226, 408, "blue", stack=1)
+top = f.panel(PB, 8, PANEL_W[1], 484, "blue", "(b) Shared encoder")
+enc = f.card(278, top + 6, 226, 408, "blue", stack=1)
+f.arrow(f"M258 268H{f.port(enc, 'left', out=1)[0]:.0f}", WIRE)  # from the brace tip to the card edge
+c = enc
 f.trapezoid(311, top + 26, 160, 76, "blue", "$E_\\theta$", size=34)
 for k, (role, sym) in enumerate((("blue", "$z^{(1)}$"), ("purple", "$z^{(2)}$"), ("orange", "$z^{s}$"))):
     f.chip(292 + 68 * k, top + 124, 62, 38, sym, role, size=LABEL, fill="#FFFFFF", stroke=PAL[role].accent, color=INK)
@@ -71,22 +74,26 @@ for k, (role, cx, cy) in enumerate((("blue", 346, top + 238), ("purple", 440, to
 f.text(391, top + 390, "shared latent space", size=LABEL, color=MUTED, anchor="middle", box=c, family="serif", italic=True)
 
 # ---------------------------------------------------------------- (c) proposed fusion
-top = f.panel(542, 8, 438, 484, "red", "(c) Proposed fusion")
-f.arrow("M506 268H552", WIRE)
-c = f.card(552, top + 6, 232, 408, "red", key=True)
+top = f.panel(PC, 8, PANEL_W[2], 484, "red", "(c) Proposed fusion")
+attn = f.card(552, top + 6, 232, 408, "red", key=True)
+f.connect(enc, attn, color=WIRE, sw=1.3, head=7)
+c = attn
 name(566, top + 36, "Cross-view attention", color=R.deep, box=c)
-for k, sym in enumerate(("$Q$", "$K$", "$V$")):
-    f.chip(570 + 68 * k, top + 56, 58, 36, sym, "red", size=MODULE, fill="#FFFFFF", stroke=R.accent, color=INK)
+QKV_X, QKV_W = 570, 194  # the fusion column: every child spans it or centers in it
+for x, sym in zip(f.place(QKV_X, QKV_X + QKV_W, (58, 58, 58), gap=10), ("$Q$", "$K$", "$V$")):
+    f.chip(x, top + 56, 58, 36, sym, "red", size=MODULE, fill="#FFFFFF", stroke=R.accent, color=INK)
 for i in range(8):
     for j in range(8):
         v = 0.12 + 0.88 * math.exp(-((i - j) ** 2) / 3.0) * (0.6 + 0.4 * math.cos(i * 0.7 + j * 0.3))
-        f.add(f'<rect x="{588 + 20 * j}" y="{top + 106 + 20 * i}" width="19" height="19" fill="{R.accent}" opacity="{v:.2f}"/>')
+        f.add(f'<rect x="{QKV_X + 17 + 20 * j}" y="{top + 106 + 20 * i}" width="19" height="19" fill="{R.accent}" opacity="{v:.2f}"/>')
 schematic(668, top + 290, c)
 f.text(668, top + 330, "$A=\\mathrm{softmax}(QK^{\\top}/\\sqrt{d})$", size=LABEL, anchor="middle", box=c)
-f.chip(572, top + 354, 192, 42, "$h=\\mathrm{Attn}(Q,K,V)$", "red", size=LABEL, fill="#FFFFFF", stroke=R.accent, color=INK)
-f.arrow(f"M785 {top + 210}H795", WIRE)
+f.chip(QKV_X, top + 354, QKV_W, 42, "$h=\\mathrm{Attn}(Q,K,V)$", "red", size=LABEL, fill="#FFFFFF", stroke=R.accent,
+       color=INK)
 
-c = f.card(796, top + 6, 174, 408, "red")
+gate = f.card(796, top + 6, 174, 408, "red")
+f.connect(attn, gate, color=WIRE, sw=1.3, head=7)
+c = gate
 name(810, top + 36, "Adaptive gate", color=R.deep, box=c)
 f.text(883, top + 84, "$g=\\sigma(W[h,z])$", size=MODULE, anchor="middle", box=c)
 f.add(f'<rect x="808" y="{top + 102}" width="150" height="112" rx="3" fill="#FFFFFF" stroke="#EBC9BE" stroke-width="0.8"/>')
@@ -96,11 +103,13 @@ schematic(883, top + 322, c)
 f.chip(812, top + 354, 142, 42, "$\\tilde{z}=g\\odot h$", "red", size=LABEL, fill="#FFFFFF", stroke=R.accent, color=INK)
 
 # ---------------------------------------------------------------- (d) heads and objective
-top = f.panel(1006, 8, 386, 484, "gray", "(d) Heads & objective")
-f.arrow(f"M971 {top + 120}H1016", WIRE)
-f.arrow(f"M971 {top + 330}H1016", WIRE)
+top = f.panel(PD, 8, PANEL_W[3], 484, "gray", "(d) Heads & objective")
 
-c = f.card(1016, top + 6, 196, 198, "green")
+policy = f.card(1016, top + 6, 196, 198, "green")
+world = f.card(1016, top + 216, 196, 198, "purple", stack=1)
+for head in (policy, world):  # ta=None lets the tall gate card meet each head head-on
+    f.connect(gate, head, sides=("right", "left"), ta=None, color=WIRE, sw=1.3, head=7)
+c = policy
 name(1028, top + 36, "Policy head", color=G.deep, box=c)
 f.text(1200, top + 36, "$\\pi_\\phi$", size=MODULE, anchor="end", box=c)
 f.tokens(1030, top + 56, 7, "green", w=20, h=12, gap=4.5)
@@ -108,7 +117,7 @@ f.bracket(1026, top + 82, 176, 84, WIRE, tick=5)
 f.curves(1034, top + 88, 160, 72, [G.accent, B.accent], seed=1.9, grid=False)
 f.text(1114, top + 192, "$\\hat{a}_{t:t+H}$", size=LABEL, anchor="middle", box=c)
 
-c = f.card(1016, top + 216, 196, 198, "purple", stack=1)
+c = world
 name(1028, top + 246, "World model", color=P.deep, box=c)
 f.text(1200, top + 246, "$F_\\psi$", size=MODULE, anchor="end", box=c)
 f.chip(1028, top + 264, 56, 38, "$z_t$", "purple", size=LABEL, fill="#FFFFFF", stroke=P.accent, color=INK)
@@ -118,7 +127,8 @@ f.arrow(f"M1160 {top + 303}V{top + 355}", R.accent, 1.3, start=True, head=7)
 f.text(1150, top + 336, "MSE", size=SMALL, color=R.deep, anchor="end", family="mono")
 f.chip(1120, top + 356, 80, 38, "$z_{t+1}$", "gray", size=LABEL, fill="#FFFFFF", color=INK)
 
-c = f.card(1224, top + 6, 158, 408, fill="#FFFFFF", stroke=HAIR)
+obj = f.card(1224, top + 6, 158, 408, fill="#FFFFFF", stroke=HAIR)
+c = obj
 name(1236, top + 36, "Objective", box=c)
 f.text(1303, top + 92, "$\\mathcal{L}$", size=42, anchor="middle", box=c)
 for k, (role, sym) in enumerate((("green", "$\\mathcal{L}_{\\mathrm{BC}}$"), ("purple", "$\\lambda\\mathcal{L}_{\\mathrm{pred}}$"),
@@ -128,8 +138,8 @@ f.line(f"M1244 {top + 276}V{top + 372}H1368", "#9C968A", 0.9)
 pts = " L".join(f"{1246 + 120 * t / 60:.1f} {top + 368 - 84 * math.exp(-4 * t / 60) - 3 * math.sin(t):.1f}" for t in range(61))
 f.add(f'<path d="M{pts}" fill="none" stroke="{INK}" stroke-width="1.4"/>')
 schematic(1303, top + 400, c)
-f.arrow(f"M1213 {top + 120}H1223", G.accent, 1.3, head=7)
-f.arrow(f"M1213 {top + 330}H1223", P.accent, 1.3, head=7)
+f.connect(policy, obj, sides=("right", "left"), tb=None, color=G.accent, sw=1.3, head=7)
+f.connect(world, obj, sides=("right", "left"), tb=None, color=P.accent, sw=1.3, head=7)
 
 f.save(str(OUT))
 print(OUT)

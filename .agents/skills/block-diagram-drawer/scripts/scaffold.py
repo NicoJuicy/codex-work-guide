@@ -36,33 +36,38 @@ f = Fig({width}, {height})
 B, P, R, G, A, O, Y = (PAL[k] for k in ("blue", "purple", "red", "green", "amber", "orange", "gray"))
 LABEL, MODULE = f.fs("label"), f.fs("module")
 
-# Column grid: 8 px outer margin, 8 px gutters. Replace the placeholder panels with the real stages.
+# Column grid from the kit: 8 px outer margin, 8 px gutters, exact and equal by construction.
+# Keep every x and w in COLS instead of typing coordinates, and anchor arrows with f.connect.
+COLS = f.cols(8, {right}, {panels_n}, gap=8)
+CARDS = []
+
 # Labels are names (at most six words); explanations go in the caption, prompts and code in f.example().
 {panels}
+
+for a, b in zip(CARDS, CARDS[1:]):  # anchored flow: both ends land exactly on a card edge
+    f.connect(a, b, color=WIRE, sw=1.4)
 
 f.save(str(OUT))
 print(OUT)
 '''
 
 PANEL = '''# ---------------------------------------------------------------- ({label}) stage {n}
-top = f.panel({x}, 8, {w}, {h}, "{role}", "({label}) Stage {n}")
-c = f.card({cx}, top + 4, {cw}, {bottom} - top - 4, "{role}")
-f.text({tx}, top + 34, "Module", size=MODULE, weight=500, box=c)
-f.text({tx}, top + 64, "$x_t$ input", size=LABEL, color=MUTED, box=c, family="serif", italic=True)
+x, w = COLS[{i}]
+top = f.panel(x, 8, w, {h}, "{role}", "({label}) Stage {n}")
+c = f.card(x + 10, top + 4, w - 20, {bottom} - top - 4, "{role}")
+CARDS.append(c)
+f.text(x + 22, top + 34, "Module", size=MODULE, weight=500, box=c)
+f.text(x + 22, top + 64, "$x_t$ input", size=LABEL, color=MUTED, box=c, family="serif", italic=True)
 '''
 
 ROLES = ("gray", "blue", "amber", "green", "purple", "red", "orange")
 
 
 def panel_code(width: int, height: int, count: int) -> str:
-    gutter, margin = 8, 8
-    pw = (width - 2 * margin - gutter * (count - 1)) / count
     blocks = []
     for i in range(count):
-        x = margin + i * (pw + gutter)
         blocks.append(PANEL.format(
-            label=chr(ord("a") + i), n=i + 1, x=round(x), w=round(pw), h=height - 16, role=ROLES[i % len(ROLES)],
-            cx=round(x + 10), cw=round(pw - 20), bottom=height - 18, tx=round(x + 22),
+            label=chr(ord("a") + i), n=i + 1, i=i, h=height - 16, role=ROLES[i % len(ROLES)], bottom=height - 18,
         ))
     return "\n".join(blocks)
 
@@ -84,7 +89,8 @@ def scaffold(target: Path, width: int, height: int, panels: int, force: bool, up
     stem = target.stem.removeprefix("fig_")
     output = f"{stem}-figure.svg"
     target.write_text(TEMPLATE.format(
-        title=stem.replace("_", " "), output=output, width=width, height=height, panels=panel_code(width, height, panels),
+        title=stem.replace("_", " "), output=output, width=width, height=height, right=width - 8, panels_n=panels,
+        panels=panel_code(width, height, panels),
     ), encoding="utf-8")
     written.append(target)
     return written
