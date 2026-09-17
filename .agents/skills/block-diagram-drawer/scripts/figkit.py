@@ -1,7 +1,7 @@
 """figkit - primitives for paper-style SVG block diagrams.
 
-Visual language (v4), measured on 359 method figures from papers published at
-robotics, ML and CV venues (see references/paper-figure-study.md):
+Visual language (v3), measured on ICRA / IROS / RSS / CoRL method figures
+(see references/paper-figure-study.md):
 - Print-size typography: the canvas maps to a real print width (1400 px ~ text width,
   700 px ~ one column, both ~2.7 px per point), labels print at 6 to 9 pt, and
   `Fig.fs(role)` returns those sizes in canvas pixels. Labels are names, not sentences;
@@ -56,7 +56,7 @@ WIRE = "#3A3A3A"
 # Printed sizes measured on robotics method figures (references/paper-figure-study.md).
 TEXT_WIDTH_PT = 516.0  # two-column text width, the width of a figure* float
 COLUMN_WIDTH_PT = 252.0  # one column
-TYPE_PT = {"note": 5.5, "min": 6.0, "label": 6.7, "module": 7.8, "title": 9.0, "hero": 12.0}
+TYPE_PT = {"min": 6.0, "label": 6.7, "module": 7.8, "title": 9.0, "hero": 12.0}
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 _RASTER_MAGIC = ((b"\x89PNG\r\n\x1a\n", "image/png"), (b"\xff\xd8\xff", "image/jpeg"), (b"RIFF", "image/webp"))
 
@@ -377,9 +377,6 @@ ICONS = {
     "contact": '<path d="M12 2.5v9"/><path d="M8.5 8l3.5 3.5L15.5 8"/><path d="M3 15h18"/><path d="M5.5 19l2.5-2.5M10 19l2.5-2.5M14.5 19l2.5-2.5M19 19l1.5-1.5"/>',
     "target": '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.3"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/>',
     "dist": '<path d="M2 19.5h20"/><path d="M2 19c3 0 4.2-11 7-11s4 11 7 11"/><path d="M8 19c3 0 4.2-11 7-11s4 11 7 11" stroke-dasharray="2 2"/>',
-    "snowflake": '<path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5"/><path d="M9.5 3.8L12 6l2.5-2.2M9.5 20.2L12 18l2.5 2.2M3.3 10.3l3.2.9-.8 3.2M20.7 13.7l-3.2-.9.8-3.2M5.7 5.2l.8 3.2-3.2.9M18.3 18.8l-.8-3.2 3.2-.9"/>',
-    "flame": '<path d="M12 21.5c-3.9 0-6.5-2.6-6.5-6.2 0-3.3 2.3-5.2 3.7-7.6.6 1.6 1.4 2.6 2.4 3.1C11.3 7.3 12.6 4.4 15 2.5c.3 3.2 3.5 5.5 3.5 10.1 0 5-2.8 8.9-6.5 8.9z"/><path d="M12 21.5c-1.7 0-2.8-1.2-2.8-2.8 0-1.7 1.3-2.6 2-3.9.9 1.2 3.6 2 3.6 4 0 1.5-1.2 2.7-2.8 2.7z"/>',
-    "lock": '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
     "eyeoff": '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/>',
     "zigzag": '<path d="M2.5 17.5l4-6 3 4 4-9 3 6 5-5"/>',
     "traj": '<circle cx="4.5" cy="18.5" r="1.8"/><circle cx="19.5" cy="5.5" r="1.8"/><path d="M6.3 17.6c3.2-1.2 3.4-5.4 6.2-6.4 2.4-.9 3.9-2.4 5.3-4.3" stroke-dasharray="2.2 2.4"/>',
@@ -414,13 +411,10 @@ SCENE = """<symbol id="scene" viewBox="0 0 130 96">
 
 
 class Fig:
-    def __init__(self, w: int, h: int, bg: str = "#FFFFFF", print_width_pt: float | None = None, family: str = "sans"):
+    def __init__(self, w: int, h: int, bg: str = "#FFFFFF", print_width_pt: float | None = None):
         """`print_width_pt` is the printed width of the whole canvas; the default treats canvases at least
-        1000 px wide as text-width (figure*) floats and narrower ones as single-column floats.
-        `family` is the label family inherited by every text: "sans" by default, "serif" for papers set in Times."""
-        if family not in ("sans", "serif"):
-            raise ValueError("family must be 'sans' or 'serif'")
-        self.w, self.h, self.bg, self.family = w, h, bg, family
+        1000 px wide as text-width (figure*) floats and narrower ones as single-column floats."""
+        self.w, self.h, self.bg = w, h, bg
         self.print_width_pt = print_width_pt or (TEXT_WIDTH_PT if w >= 1000 else COLUMN_WIDTH_PT)
         self.defs: dict[str, str] = {}
         self.body: list[str] = []
@@ -430,7 +424,7 @@ class Fig:
     # -- plumbing ----------------------------------------------------------
     def fs(self, role: str = "label") -> float:
         """Font size in canvas px that prints at the measured paper size for `role`
-        (note, min, label, module, title, hero). `note` is only for secondary annotations such as tensor shapes."""
+        (min, label, module, title, hero)."""
         return round(TYPE_PT[role] * self.w / self.print_width_pt, 1)
 
     def uid(self, prefix: str) -> str:
@@ -460,7 +454,7 @@ class Fig:
             # Default family on the root (inherited) rather than a `text{}` CSS rule: a stylesheet rule
             # would override per-element font-family attributes and silently drop serif/mono labels.
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}" '
-            f'font-family="{FAMILIES[self.family]}" data-print-width-pt="{self.print_width_pt:g}">'
+            f'font-family="{SANS}" data-print-width-pt="{self.print_width_pt:g}">'
             f"<style>text{{white-space:pre;font-kerning:normal}}text:not([fill]){{fill:{INK}}}"
             f".ic{{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}}</style>"
             f"<defs>{defs}</defs>"
@@ -473,15 +467,12 @@ class Fig:
 
     # -- text --------------------------------------------------------------
     def text(self, x, y, s, size=None, weight=400, color=INK, anchor="start", ls=0.0, box=None,
-             italic=False, opacity=None, family=None, note=False):
-        """Rich text. family: None inherits the figure family; sans (labels), serif (data names, quoted
-        language) or mono (tokens, code) set it explicitly. `size` defaults to the label size, or to the note
-        size with note=True, which marks a secondary annotation the QA gate allows down to 5 pt."""
-        size = size or self.fs("note" if note else "label")
+             italic=False, opacity=None, family="sans"):
+        """Rich text. family: sans (labels), serif (data names, quoted language), mono (tokens, code).
+        `size` defaults to the label size for the canvas print width."""
+        size = size or self.fs("label")
         attrs = f'x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{color}"'
-        if note:
-            attrs += ' data-tier="note"'
-        if family and family != self.family:
+        if family != "sans":
             attrs += f' font-family="{FAMILIES[family]}"'
         if weight != 400:
             attrs += f' font-weight="{weight}"'
@@ -762,77 +753,6 @@ class Fig:
     def line(self, d, color=HAIR, sw=1.0, dashed=False):
         dash = ' stroke-dasharray="3 3"' if dashed else ""
         self.add(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{sw}"{dash}/>')
-
-    # -- conventions seen across published figures ------------------------------
-    def _glyph(self, name, x, y, size, color):
-        self.icon(name, x, y, size, color)
-        bid = self.uid("ic")
-        self.add(f'<rect data-box="{bid}" data-kind="icon" x="{x}" y="{y}" width="{size}" height="{size}" fill="none" stroke="none"/>')
-        return bid
-
-    def mark(self, kind, x, y, size=None):
-        """Module-state mark placed in a module corner: "frozen" (snowflake), "trainable" (flame) or "locked"."""
-        name, color = {"frozen": ("snowflake", PAL["blue"].accent), "trainable": ("flame", PAL["red"].accent),
-                       "locked": ("lock", MUTED)}[kind]
-        return self._glyph(name, x, y, size or round(self.fs("label") * 1.1), color)
-
-    def outcome(self, x, y, ok=True, size=None):
-        """Check or cross badge for an accept/reject or success/failure branch."""
-        return self._glyph("check" if ok else "x", x, y, size or round(self.fs("label") * 1.1),
-                           PAL["green"].deep if ok else PAL["red"].deep)
-
-    def divider(self, x, y0, y1, color=HAIR, dashed=True, sw=1.2):
-        """Thin vertical rule between mirrored panels (baseline vs ours, training vs deployment)."""
-        dash = ' stroke-dasharray="5 4"' if dashed else ""
-        self.add(f'<path d="M{x} {y0}V{y1}" fill="none" stroke="{color}" stroke-width="{sw}"{dash} data-qa="ignore"/>')
-
-    def stage_ruler(self, spans, y, tick=7, size=None, weight=600):
-        """Bracket ruler naming stages under (or above) columns: spans are (x0, x1, label, role) tuples.
-        Ticks point up, toward the columns; place the ruler above the columns with a negative tick."""
-        size = size or self.fs("label")
-        for x0, x1, label, role in spans:
-            color = PAL[role].deep if role else INK
-            self.add(f'<path d="M{x0} {y - tick}V{y}H{x1}V{y - tick}" fill="none" stroke="{PAL[role].accent if role else WIRE}" '
-                     f'stroke-width="1.4" data-qa="ignore"/>')
-            ty = y + size * 1.25 if tick > 0 else y - size * 0.55
-            self.text((x0 + x1) / 2, ty, label, size=size, weight=weight, color=color, anchor="middle")
-
-    def zoom(self, src, dst, color=FAINT, dashed=True):
-        """Mark `src` (x, y, w, h) with a dashed box and join it to the detail panel `dst` with two zoom lines."""
-        sx, sy, sw_, sh = src
-        dx, dy, dw, dh = dst
-        dash = ' stroke-dasharray="4 3"' if dashed else ""
-        self.add(f'<rect x="{sx}" y="{sy}" width="{sw_}" height="{sh}" rx="4" fill="none" stroke="{color}" stroke-width="1.2"{dash}/>')
-        if dy >= sy + sh:  # detail below
-            pairs = ((sx, sy + sh, dx, dy), (sx + sw_, sy + sh, dx + dw, dy))
-        elif dx >= sx + sw_:  # detail to the right
-            pairs = ((sx + sw_, sy, dx, dy), (sx + sw_, sy + sh, dx, dy + dh))
-        elif dy + dh <= sy:  # detail above
-            pairs = ((sx, sy, dx, dy + dh), (sx + sw_, sy, dx + dw, dy + dh))
-        else:  # detail to the left
-            pairs = ((sx, sy, dx + dw, dy), (sx, sy + sh, dx + dw, dy + dh))
-        for x0, y0, x1, y1 in pairs:
-            self.add(f'<path d="M{x0} {y0}L{x1} {y1}" fill="none" stroke="{color}" stroke-width="1"{dash}/>')
-
-    def callout(self, ax, ay, lx, ly, s, color=WIRE, size=None, anchor="start"):
-        """Leader line from a point on a render or photo (dot) to an aligned label, as in hardware figures."""
-        size = size or self.fs("label")
-        self.dot(ax, ay, color, 2.6)
-        self.add(f'<path d="M{ax} {ay}L{lx} {ly}" fill="none" stroke="{color}" stroke-width="1" data-qa="ignore"/>')
-        tx = lx + (6 if anchor == "start" else -6)
-        self.text(tx, ly + size * 0.36, s, size=size, color=color, anchor=anchor)
-
-    def hourglass(self, x, y, w, h, role, s=None, size=None, waist=0.45):
-        """Encoder-decoder (U-Net) shape: wide ends, narrow waist."""
-        size = size or self.fs("module")
-        p = PAL[role]
-        m = w * (1 - waist) / 2
-        pts = f"{x},{y} {x + w},{y} {x + w - m},{y + h / 2} {x + w},{y + h} {x},{y + h} {x + m},{y + h / 2}"
-        cid = self.uid("hg")
-        self.add(f'<polygon data-box="{cid}" data-kind="card" points="{pts}" fill="{p.tint}" stroke="{p.accent}" stroke-width="1"/>')
-        if s:
-            self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle")
-        return cid
 
     # -- data sketches -------------------------------------------------------
     def bars(self, x, y, w, h, values, color, gap=2.0, base="#B9B4A8", box=None):

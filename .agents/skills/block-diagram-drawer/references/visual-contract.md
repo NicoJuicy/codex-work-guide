@@ -25,15 +25,15 @@ Compare the draft against strong paper figures on these axes before changing any
 
 | Axis | Strong paper figure | Typical generated draft |
 |---|---|---|
-| Print size | Median label 6.9 pt, small labels 5.8 pt, title lines 8.7 pt (about 19, 16 and 24 px on a 1400 px text-width canvas) | 11 to 13 px labels that print at 4 to 5 pt, the level of hard-to-read published figures |
-| Words | About 40 label words in a text-width figure (hard-to-read figures: 85); labels of one to four words; short example prompts only | Explanatory sentences, questions, notes and pasted traces beside every part |
-| Structure | Stage columns, mirrored panels, or named bands and containers; explanations in the caption | Bands with a column of descriptions and a column of notes, plus a legend strip explaining every symbol |
+| Print size | Labels print at 6 to 8 pt, module names 7 to 11 pt, titles 9 to 12 pt (16 to 33 px on a 1400 px text-width canvas) | 11 to 13 px labels that print at 4 to 5 pt |
+| Words | 30 to 80 label words in a text-width figure; sentences only inside example prompts, code or traces | Explanatory sentences, questions and notes beside every part |
+| Structure | Stage columns or titled group containers; explanations in the caption | Full-width bands with a header column of descriptions and a notes column, plus a legend strip explaining every symbol |
 | Imagery | Real renders, camera frames, point clouds or photos | Cartoon scenes drawn from icons, or no task context at all |
 | Fill | Content and imagery cover most of the canvas at readable size; gutters about 8 to 12 px | Large margins, in-canvas title band, long arrows, boxes two to three times larger than their text |
-| Hierarchy | At most two nesting levels below the canvas (panel, card, chip) | One level of same-size boxes, or three nested bordered and dashed levels |
+| Hierarchy | Three nesting levels: stage panel, card, chip or symbol | One level of same-size boxes |
 | Content | Names paired with symbols, terms, and notation hooks on every card | Prose sentences that read like slides |
-| Palette | Three or four muted fills, each hue mapped to an entity and carried across panels; one accent for the contribution | Six or more arbitrary hues, gradients, drop shadows, thick saturated borders, white text on saturated fills |
-| Typography | Regular or medium module names (70% of exemplars), bold only for titles; one label family, sans or the paper's serif | Bold on every module name (46% of hard-to-read figures), mixed families, uppercase letter-spaced headers |
+| Palette | Three or four muted flat fills with a slightly darker stroke, warm-gray neutrals | Gradients, many saturated hues, thick colored outlines, filled saturated badges |
+| Typography | Bold only for panel titles and key words; regular or medium module names; serif italic for data names and language; monospace for tokens and outputs | Bold sans everywhere and uppercase letter-spaced headers, which read as a UI dashboard |
 | Shapes | Token pills, trapezoid encoders, bracketed vectors, cylinders, block arrows, circled step numbers, dashed groups | Rounded rectangles and generic UI icons for everything |
 | Connectors | Thin near-black wires, braces, fork and merge dots, dashed gray loops with italic labels | Colored arrows on every edge |
 | Layout | Wide single-row pipeline on a strict column grid; title lives in the caption | Vertical single columns with empty sides; title inside the canvas |
@@ -41,32 +41,27 @@ Compare the draft against strong paper figures on these axes before changing any
 ## 3. Print size and density contract
 
 - The canvas maps to a print width: 1400 px for a text-width `figure*` (516 pt) and 700 px for one column (252 pt), about 2.7 px per point either way; `Fig` stores it as `data-print-width-pt`.
-- No label prints below 6 pt (16.3 px at 1400 px), except note-tier annotations (tensor shapes, sub-captions, tick labels) down to 5 pt; math scripts inside a label are exempt.
-- The figure's median label prints at 6.5 pt or more; the gate warns below 6 pt and fails below 5 pt.
-- No label outside example content has more than six words; label words stay near 40 for a text-width figure, with a warning above 65 and a failure above 90, scaled by printed area.
-- Example content stays short: one or two cards of one to three lines; the gate warns above 30 words and fails above 60.
-- Label text keeps a contrast of at least 4.5:1 against its container (the gate fails below 3:1).
+- No label prints below 6 pt (16.3 px at 1400 px); the gate enforces it, and math scripts inside a label are exempt.
+- No label outside example content has more than six words, and label words stay within 1 per 10,000 px² of canvas (70 words at 1400 by 500).
 - Content coverage, measured by `scripts/qa_svg_figure.py`, is at least 0.40 and typically 0.55 to 0.75 once imagery is in place; framed coverage is usually above 0.85.
 - Outer margin is 8 px; gutter between panels is 8 to 12 px; card padding is 10 to 14 px.
 - No empty band wider than one card height may remain inside a panel; fill it with an image, sketch, notation, or example content, or shrink the panel.
 - Do not put the figure title, a long subtitle, or explanatory notes inside the canvas; the paper caption carries them.
-- Choose the aspect ratio from the layout archetype, not from a fixed range: published text-width figures have a median of 2.36, with pipelines wider and layered stacks taller; the ratio does not separate good from weak figures.
+- Prefer a wide aspect ratio for text-width figures (about 2:1 to 3.5:1) and stack rows only when the story has parallel variants or a layered hierarchy with vertical cross-layer arrows.
 - Panel title rows are shared space: cards beside the title may start at its top, and loop lanes with their labels may run through the row.
 - Density never comes from small text: first move explanations into the caption, then remove redundant words, then tighten boxes to their content, then reflow, then grow the canvas.
 
 ## 4. Visual language
 
-The defaults in `scripts/figkit.py` follow a study of 359 method figures from papers confirmed as published at robotics, ML and CV venues; `paper-figure-study.md` lists the measurements, layout archetypes, verified rules and exemplars such as LLaVA, VIMA, DPO, InstructPix2Pix, AMO and Diffusion Policy.
+The defaults in `scripts/figkit.py` follow measured method figures from ICRA, IROS, RSS and CoRL papers such as LOTUS, BUMBLE, ConceptGraphs, Kimera, LLM3, Octo, DROC, MOKA, VoxPoser and ReKep (`paper-figure-study.md`).
 Study a few current method figures from the target venue before a major restyle, and record the palette, weights, and shape vocabulary you adopt.
 
 ### 4.1 Composition
 
 - **Stage panel:** flat, very light role tint without an outline, or a dashed warm-gray outline for input groups; left-aligned bold title with a panel label such as `(a)`, followed by a regular gray subtitle on the same line or below it in narrow panels.
 - **Card:** pastel role tint with a 1 px stroke one step darker; white cards with a hairline stroke for neutral content.
-- **Group container or band:** a layer or subsystem is a light tinted container or a full-width band carrying only its name (inside the top-left corner, in a title bar, or in the left margin); descriptions of what it does go in the caption, not in a side column.
-- **Stage names:** use one device for the whole figure: titles above columns, a `stage_ruler()` bracket under them, or titles inside tinted containers.
-- **Key module:** the contribution gets one accent used nowhere else: a distinct fill on a muted or gray scaffold, a near-black 1.4 px outline (`key=True`), or size; do not emphasize several modules or a whole path.
-- **Zoom inset:** show a block's internals with `zoom()`: a dashed box on the block and two lines to a detail panel in the same tint.
+- **Group container:** a layer or subsystem is a light container with its title inside the top-left corner (or in a title bar); descriptions of what it does go in the caption, not in a side column.
+- **Key module:** exactly the module the reader should find first gets a stronger fill or a near-black 1.4 px outline (`key=True`); do not outline everything.
 - **Example card:** verbatim prompts, instructions, generated code and reasoning traces sit in `example()` cards or bubbles; these are the only places for sentences.
 - **Image:** renders, camera frames, point clouds and photos are embedded with `image()` in a thin frame; they are the default way to show the task.
 - **Chip:** small light rectangle with a hairline stroke; dashed chips mark derived or linked quantities.
@@ -89,26 +84,21 @@ Assign one role per concept and reuse it in every figure of the same paper.
 | `orange` (clay) | proprioception or a secondary signal |
 | `gray` (stone) | inputs, neutral containers, standard components |
 
-Connectors are near-black (`WIRE`) by default; color an edge when it carries a branch outcome or when color encodes an entity or flow type, and then color its label to match instead of adding a legend.
-
-Provenance color: give each entity (a modality, data source, camera view, agent, or query type) one hue and reuse it on its tokens, arrows, frame borders, label text and every output derived from it, across all panels.
-Stage tints and the contribution accent share the same budget: three or four fill hues per figure, five only when every hue maps to a named entity; the gate warns at six.
-Never code status with red and green alone; pair color with a check or cross (`outcome()`), a dash pattern, or a label.
+Connectors are near-black (`WIRE`) by default; color an edge only when it carries a branch outcome such as accept or override.
 Avoid gradients on containers; a gentle gradient is acceptable only inside a token row that blends two modalities.
 
 ### 4.3 Typography
 
 - Sans (Helvetica Neue or Arial with a CJK fallback) for labels.
-- Bold (600 to 700) only for panel titles, stage names, branch outcomes, and one or two key words per card; the gate warns when more than 35% of labels are bold.
-- Regular (400) or medium (500) for module and card names; light (300) for one large focal word or number.
+- Bold (700) only for panel titles, branch outcomes, and one or two key words per card.
+- Medium (500) for module and card names; light (300) for one large focal word or number.
 - Serif italic (`family="serif", italic=True`) for data names, variables in prose, quoted language, and connector labels.
 - Monospace (`family="mono"`) for tokens, discrete outputs such as `accept` or `override`, tick labels, and code-like terms.
 - Math through `$...$` for every symbol; never fake math with sans italics.
 - Sentence case everywhere; no uppercase letter-spaced headers.
 - Chinese text stays upright in sans; do not synthesize italic CJK.
-- Sizes come from `f.fs(role)`, which converts measured printed sizes to canvas pixels: `note` 5.5 pt (14.9 px at 1400 px) for secondary annotations only, `min` 6 pt (16.3 px), `label` 6.7 pt (18.2 px), `module` 7.8 pt (21.2 px), `title` 9 pt (24.4 px), `hero` 12 pt (32.6 px) for one focal symbol or number.
-- Sans labels appear in 50% of published figures and serif labels in 36% (48% in CV); use `Fig(..., family="serif")` when the paper body is Times, and keep one family for labels (mixed families are common in hard-to-read figures).
-- Avoid rotated labels inside narrow bars when horizontal space exists, and thin monospace text below 6 pt.
+- Sizes come from `f.fs(role)`, which converts measured printed sizes to canvas pixels: `min` 6 pt (16.3 px at 1400 px), `label` 6.7 pt (18.2 px), `module` 7.8 pt (21.2 px), `title` 9 pt (24.4 px), `hero` 12 pt (32.6 px) for one focal symbol or number.
+- Many IEEE figures set every label in the paper's Times-like serif with bold serif module names; that is a valid alternative to sans when the paper body is Times, but keep one family per figure for labels.
 - Nothing prints below 6 pt: figures are read at column or text width, where smaller labels become unreadable. The QA gate enforces this with `smallText`.
 
 ### 4.4 Shape vocabulary
@@ -119,14 +109,6 @@ Avoid gradients on containers; a gentle gradient is acceptable only inside a tok
 | encoder or feature extractor | `trapezoid` |
 | action or state vector | `bracket` around math symbols |
 | stored data, history, dataset | `cylinder` |
-| encoder-decoder (U-Net) | `hourglass` |
-| library, batch, N parallel copies | `card(stack=n)` |
-| frozen or trainable module | `mark("frozen")` snowflake, `mark("trainable")` flame, in the module corner |
-| accept or reject, success or failure branch | `outcome(ok=True/False)` check or cross badge |
-| baseline versus ours, training versus deployment | mirrored panels split by `divider()` |
-| stage names under or above columns | `stage_ruler()` |
-| internals of one block | `zoom()` inset |
-| part of a render or photo | `callout()` leader line with a dot |
 | language input or model utterance | `bubble` |
 | ordered sub-steps | `step` circled numbers |
 | stage transition | `block_arrow` |
@@ -164,9 +146,6 @@ Method-specific structure (graphs, token rows, kinematic chains, curves) stays a
 - Thin near-black arrow with a small filled head for the main flow.
 - Dot plus short bus for fork and merge; color only the branch segments that carry an outcome.
 - Dashed gray rounded arc routed inside panel gutters for closed loops and feedback, with a serif italic label on a white knock-out.
-- One meaning per connector style: thin dark wires by default, block arrows only for one or two major hand-offs, dashed or accent-colored paths for training-only, gradient or feedback flows, explained by a two-entry key when needed.
-- Label an edge only when what flows is not obvious from its endpoints; use a symbol, a noun or a verb.
-- Circled step numbers on arrows or stage headers tie a loop or pipeline to the text; section references such as §3.1 in stage titles are fine.
 - Double-headed short arrow with a monospace label (for example `MSE`) for comparisons.
 - Curly brace to group several inputs into one consumer.
 - Diamond or two-segment pill only for an explicit decision; label branches in serif italic (`yes`, `no`) or monospace (`accept`, `override`).
@@ -184,9 +163,8 @@ Method-specific structure (graphs, token rows, kinematic chains, curves) stays a
 
 ## 8. QA gate and its limits
 
-The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, strokes crossing uncovered labels, labels that print below 6 pt (5 pt for the note tier), labels longer than six words outside example content, label contrast below 3:1, a figure median label below 5 pt, label words above the printed-area budget, example content above 60 words, or coverage below the threshold.
-It warns on a median label below 6 pt, label words above about 65, example words above 30, six or more fill hues, containers nested three deep, more than 35% bold labels, and contrast below 4.5:1.
-Every limit has a flag (`--min-pt`, `--note-min-pt`, `--print-width-pt`, `--max-words`, `--word-warn`, `--word-fail`, `--example-fail`, `--min-coverage`); relax one only deliberately and report why.
+The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, strokes crossing uncovered labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget, or coverage below the threshold.
+Every limit has a flag (`--min-pt`, `--print-width-pt`, `--max-words`, `--words-per-10k`, `--min-coverage`); relax one only deliberately and report why.
 QA cannot judge semantics, arrow direction, icon fit, misleading sketches, font fallback, or aesthetic balance, so the rendered PNG must still be inspected.
 Link every text element to its container with `box=` so overflow is checked; freestanding labels are still covered by the collision and line checks.
 
@@ -197,10 +175,7 @@ Link every text element to its container with `box=` so overflow is checked; fre
 - A `text` element with `text-anchor="middle"` stays centered only while its tspans use relative `dy`/`dx`; absolute `x` on a tspan starts a new chunk.
 - Serif math glyphs have tall bounding boxes; give large focal symbols about 1.2 times their font size of vertical clearance, and give connector labels a knock-out at least 21 px high.
 - A subscripted symbol such as $t_1$ or $\pi_{0.5}$ overflows a chip shorter than about 1.9 times its font size; at `fs("label")` use chips at least 36 px tall.
-- Layer bands with a column of descriptions, a notes column and a legend strip of meanings look like documentation even when every check passes; keep only the band names and move the prose to the caption.
-- Pasting a full reasoning trace, dialog or code block into an example card makes the whole figure read small; truncate to one to three lines.
-- Light gray labels on tinted cards fail contrast; use `MUTED` or the role's deep color for secondary text.
-- SVG sources with transparent backgrounds render black in some viewers and converters; figkit always paints a white background rectangle, so keep it.
+- Full-width layer bands with a header column of descriptions, a notes column and a legend strip of meanings look like documentation even when every check passes; use titled group containers and move the prose to the caption.
 - Raising coverage by adding notes, legends or extra cards makes a figure denser but less like a paper figure; fill space with imagery, examples or larger type instead.
 - `scene()` keeps its own 4:3 artwork, so a much wider frame shows empty side bars; keep scene frames near 4:3 or use a real image with `fit="cover"`.
 - Outlining every step of an example path in black removes the single focal point; emphasize one module.
@@ -221,17 +196,15 @@ Link every text element to its container with `box=` so overflow is checked; fre
 
 | Call | Purpose |
 |---|---|
-| `Fig(w, h, print_width_pt=None, family="sans")` then `save(path)` | canvas, defs, and output; print width defaults to 516 pt for canvases at least 1000 px wide and 252 pt otherwise; `family="serif"` for Times papers |
-| `fs(role)` | print-size font in px for `note`, `min`, `label`, `module`, `title`, `hero` |
+| `Fig(w, h, print_width_pt=None)` then `save(path)` | canvas, defs, and output; print width defaults to 516 pt for canvases at least 1000 px wide and 252 pt otherwise |
+| `fs(role)` | print-size font in px for `min`, `label`, `module`, `title`, `hero` |
 | `panel(x, y, w, h, role, title, sub=None, dashed=False, sub_below=False)` | flat stage panel; returns the content top y; `title=None` for a headerless strip |
 | `card(x, y, w, h, role, stack=0, key=False, fill=None, stroke=None, dashed=False)` | pastel or white card; returns an id for `box=` |
 | `example(x, y, w, h, role=None, fill=None, stroke=None, dashed=False)` | card for verbatim prompts, code and traces; its labels are exempt from word limits |
 | `image(path, x, y, w, h, fit="cover", r=3, frame=HAIR)` | embed a PNG, JPEG or WebP render or photo (up to 8 MB) as a data URI with a thin frame |
 | `chip`, `badge`, `pill`, `step` | small labeled containers, quiet number tags, connector labels, circled step numbers |
-| `text(x, y, s, size, weight, color, anchor, box=id, family=None, italic=False, note=False)` | rich text with `$math$`; `family` overrides the figure family with `sans`, `serif`, or `mono`; `note=True` marks a secondary annotation |
-| `tokens`, `trapezoid`, `hourglass`, `bracket`, `cylinder`, `bubble`, `block_arrow` | shapes with meaning (section 4.4) |
-| `mark(kind, x, y)`, `outcome(x, y, ok)` | frozen, trainable or locked marks; check or cross outcome badges |
-| `divider(x, y0, y1)`, `stage_ruler(spans, y)`, `zoom(src, dst)`, `callout(ax, ay, lx, ly, s)` | mirrored-panel rule, bracket stage names, zoom insets, leader-line labels |
+| `text(x, y, s, size, weight, color, anchor, box=id, family="sans", italic=False)` | rich text with `$math$`; `family` is `sans`, `serif`, or `mono` |
+| `tokens`, `trapezoid`, `bracket`, `cylinder`, `bubble`, `block_arrow` | shapes with meaning (section 4.4) |
 | `arrow(d, color=WIRE, dashed, start, end, open_)`, `line`, `dot`, `brace` | connectors |
 | `scene(x, y, w, h, frame)` | schematic tabletop thumbnail |
 | `bars`, `curves`, `strip` | schematic data sketches |

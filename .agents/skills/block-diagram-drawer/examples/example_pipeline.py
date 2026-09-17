@@ -20,7 +20,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "scripts"))
 
-from figkit import HAIR, INK, MUTED, PAL, WIRE, Fig
+from figkit import FAINT, HAIR, INK, MUTED, PAL, WIRE, Fig
 
 OUT = HERE / "example_pipeline.svg"
 B, P, R, G, O, Y = (PAL[k] for k in ("blue", "purple", "red", "green", "orange", "gray"))
@@ -34,7 +34,7 @@ def name(x, y, s, color=INK, box=None, anchor="start"):
 
 
 def schematic(x, y, box):
-    f.text(x, y, "schematic", size=SMALL, color=MUTED, anchor="middle", box=box, family="serif", italic=True)
+    f.text(x, y, "schematic", size=SMALL, color=FAINT, anchor="middle", box=box, family="serif", italic=True)
 
 
 # ---------------------------------------------------------------- (a) inputs
@@ -45,8 +45,9 @@ for k, (label, sym) in enumerate((("view 1", "$x^{(1)}$"), ("view 2", "$x^{(2)}$
     name(30, y + 30, label, box=c)
     f.asset(HERE / "assets" / "camera.svg", 106, y + 13, 20, color=MUTED)
     f.text(218, y + 30, sym, size=MODULE, anchor="end", box=c)
-    f.scene(30, y + 44, 96, 72)
-    f.chip(138, y + 64, 80, 32, "RGB", "gray", size=SMALL, fill="#FFFFFF", family="mono")
+    f.scene(30, y + 44, 100, 72)
+    f.chip(142, y + 44, 76, 32, "RGB", "gray", size=SMALL, fill="#FFFFFF", family="mono")
+    f.chip(142, y + 84, 76, 32, "$224^2$", "gray", size=SMALL, fill="#FFFFFF")
 c = f.card(18, top + 278, 212, 136, fill="#FFFFFF", stroke=HAIR)
 name(30, top + 308, "state", box=c)
 f.text(218, top + 308, "$s_t$", size=MODULE, anchor="end", box=c)
@@ -67,10 +68,10 @@ for k, (role, cx, cy) in enumerate((("blue", 346, top + 238), ("purple", 440, to
         ang = j * 2.4 + k
         rad = 0.4 + 0.07 * j
         f.dot(cx + 22 * math.cos(ang) * rad, cy + 18 * math.sin(ang) * rad, PAL[role].accent, 3.2)
-f.text(391, top + 390, "latent space", size=LABEL, color=MUTED, anchor="middle", box=c, family="serif", italic=True)
+f.text(391, top + 390, "shared latent space", size=LABEL, color=MUTED, anchor="middle", box=c, family="serif", italic=True)
 
 # ---------------------------------------------------------------- (c) proposed fusion
-top = f.panel(542, 8, 438, 484, "red", "(c) Fusion")
+top = f.panel(542, 8, 438, 484, "red", "(c) Proposed fusion")
 f.arrow("M506 268H552", WIRE)
 c = f.card(552, top + 6, 232, 408, "red", key=True)
 name(566, top + 36, "Cross-view attention", color=R.deep, box=c)
@@ -95,7 +96,7 @@ schematic(883, top + 322, c)
 f.chip(812, top + 354, 142, 42, "$\\tilde{z}=g\\odot h$", "red", size=LABEL, fill="#FFFFFF", stroke=R.accent, color=INK)
 
 # ---------------------------------------------------------------- (d) heads and objective
-top = f.panel(1006, 8, 386, 484, "gray", "(d) Heads")
+top = f.panel(1006, 8, 386, 484, "gray", "(d) Heads & objective")
 f.arrow(f"M971 {top + 120}H1016", WIRE)
 f.arrow(f"M971 {top + 330}H1016", WIRE)
 

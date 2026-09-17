@@ -128,30 +128,6 @@ class FigureTests(unittest.TestCase):
         self.assertIn('font-size="18.2"', svg)
         self.assertEqual(ET.fromstring(svg).get("data-print-width-pt"), "516")
 
-    def test_study_conventions_render(self) -> None:
-        f = figkit.Fig(1400, 400)
-        f.mark("frozen", 10, 10)
-        f.mark("trainable", 40, 10)
-        f.outcome(70, 10, ok=False)
-        f.divider(700, 10, 390)
-        f.stage_ruler([(20, 300, "Pretraining", "blue"), (320, 600, "Finetuning", None)], 380)
-        f.zoom((100, 100, 80, 40), (100, 200, 300, 120))
-        f.callout(500, 100, 600, 80, "gripper")
-        f.hourglass(800, 100, 120, 90, "purple", "U-Net")
-        f.text(10, 300, "224x224", note=True)
-        svg = f.svg()
-        ET.fromstring(svg)
-        for token in ('id="i-snowflake"', 'id="i-flame"', 'id="i-x"', 'data-tier="note"', 'font-size="14.9"', ">Finetuning<"):
-            self.assertIn(token, svg)
-        serif = figkit.Fig(700, 200, family="serif")
-        serif.text(10, 20, "inherits serif")
-        serif.text(10, 50, "explicit sans", family="sans")
-        root = ET.fromstring(serif.svg())
-        self.assertIn("STIX", root.get("font-family"))
-        self.assertIn("Helvetica", serif.svg().split("explicit sans")[0].rsplit("<text", 1)[1])
-        with self.assertRaises(ValueError):
-            figkit.Fig(100, 100, family="mono")
-
     def test_example_cards_and_bubbles_are_marked(self) -> None:
         f = figkit.Fig(400, 200)
         f.example(10, 10, 200, 60)
@@ -290,32 +266,15 @@ class QaGateTests(unittest.TestCase):
         return base
 
     def test_clean_report_passes(self) -> None:
-        self.assertEqual(qa.failures(self.report()), [])
-        self.assertEqual(qa.warnings(self.report()), [])
+        self.assertEqual(qa.failures(self.report(), 0.55), [])
 
     def test_any_issue_or_low_coverage_fails(self) -> None:
-        self.assertEqual(qa.failures(self.report(lineText=[["a", "M0 0"]])), ["lineText=1"])
-        self.assertEqual(qa.failures(self.report(coverage=0.3)), ["coverage=0.3 < 0.4"])
+        self.assertEqual(qa.failures(self.report(lineText=[["a", "M0 0"]]), 0.55), ["lineText=1"])
+        self.assertEqual(qa.failures(self.report(coverage=0.3), 0.55), ["coverage=0.3 < 0.55"])
 
-    def test_study_thresholds_fail_and_warn(self) -> None:
-        base = {"size": [1400, 583], "printWidthPt": 516, "words": 40, "exampleWords": 0, "medianPt": 6.9, "fillHues": 3,
-                "maxNesting": 1, "boldShare": 0.1, "contrastWarn": []}
-        report = self.report(**base)
-        report["wordWarn"], report["wordFail"] = qa.word_budget(report, qa.Limits())
-        self.assertEqual((report["wordWarn"], report["wordFail"]), (65, 90))
-        self.assertEqual(qa.failures(report), [])
-        noisy = dict(report, words=80, medianPt=5.5, exampleWords=45, fillHues=6, maxNesting=3, boldShare=0.5)
-        self.assertEqual(qa.failures(noisy), [])
-        self.assertEqual(len(qa.warnings(noisy)), 6)
-        broken = dict(report, words=120, medianPt=4.2, exampleWords=90)
-        self.assertEqual(qa.failures(broken), ["medianPt=4.2 < 5.0", "words=120 > 90", "exampleWords=90 > 60"])
-
-    def test_word_budget_scales_with_printed_area(self) -> None:
-        limits = qa.Limits()
-        tall = {"size": [1400, 1000], "printWidthPt": 516}
-        column = {"size": [700, 500], "printWidthPt": 252}
-        self.assertEqual(qa.word_budget(tall, limits), (104, 144))
-        self.assertEqual(qa.word_budget(column, limits), (32, 45))
+    def test_word_budget_is_enforced(self) -> None:
+        self.assertEqual(qa.failures(self.report(words=40, wordBudget=56), 0.4), [])
+        self.assertEqual(qa.failures(self.report(words=90, wordBudget=56), 0.4), ["words=90 > budget 56"])
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_detects_overflow_and_line_through_label(self) -> None:
@@ -336,14 +295,12 @@ class QaGateTests(unittest.TestCase):
         f = figkit.Fig(1400, 120)
         f.text(20, 40, "tiny annotation", size=12.5)
         f.text(20, 80, "readable $a_t^{2}$ label", size=18)
-        f.text(400, 40, "224x224", note=True)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "small.svg"
             f.save(str(path))
             report = qa.measure(path, _browser_or_none())
-            relaxed = qa.measure(path, _browser_or_none(), qa.Limits(min_px=9))
+            relaxed = qa.measure(path, _browser_or_none(), min_font=9)
         self.assertEqual([item["s"] for item in report["smallText"]], ["tiny annotation"])
-        self.assertFalse(any(item["note"] for item in report["smallText"]))
         self.assertEqual(relaxed["smallText"], [])
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
@@ -357,34 +314,11 @@ class QaGateTests(unittest.TestCase):
             path = Path(tmp) / "words.svg"
             f.save(str(path))
             report = qa.measure(path, _browser_or_none())
-            tight = qa.measure(path, _browser_or_none(), qa.Limits(word_fail=2))
+            tight = qa.measure(path, _browser_or_none(), words_per_10k=0.02)
         self.assertEqual([item["words"] for item in report["longText"]], [7])
-        self.assertEqual((report["words"], report["exampleWords"]), (9, 10))
-        self.assertEqual(report["wordFail"], 46)
-        self.assertIn("words=9 > 1", qa.failures(tight, qa.Limits(min_coverage=0)))
-
-    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
-    def test_browser_reports_contrast_hues_nesting_and_median(self) -> None:
-        f = figkit.Fig(1400, 300)
-        outer = f.card(10, 10, 600, 280, "gray")
-        mid = f.card(20, 20, 400, 200, "blue")
-        inner = f.card(30, 30, 300, 100, "green")
-        f.chip(40, 40, 120, 40, "deep", "purple")
-        f.text(200, 70, "pale label", color="#E3EEDA", box=inner)
-        for k, role in enumerate(("red", "amber", "orange")):
-            f.card(700 + 120 * k, 20, 100, 60, role)
-        f.text(40, 260, "median label", box=outer)
-        f.text(300, 260, "second label", box=outer)
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "style.svg"
-            f.save(str(path))
-            report = qa.measure(path, _browser_or_none())
-        self.assertEqual([item["s"] for item in report["lowContrast"]], ["pale label"])
-        self.assertGreaterEqual(report["fillHues"], 6)
-        self.assertEqual(report["maxNesting"], 3)
-        self.assertAlmostEqual(report["medianPt"], 6.7, delta=0.1)
-        self.assertTrue(any(w.startswith("maxNesting") for w in qa.warnings(report)))
-        del mid
+        self.assertEqual(report["words"], 9)
+        self.assertEqual(report["wordBudget"], 42)
+        self.assertIn("words=9 > budget 1", qa.failures(tight, 0.0))
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_applies_monospace_family(self) -> None:

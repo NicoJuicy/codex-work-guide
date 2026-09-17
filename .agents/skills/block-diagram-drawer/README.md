@@ -1,10 +1,10 @@
 # Block Diagram Drawer
 
 Block Diagram Drawer turns a description, sketch, README, ASCII diagram, or reference image into a block diagram that reads like a robotics or AI paper figure.
-Figures are small Python build scripts that output SVG and a 2x PNG, sized and styled after a study of 359 method figures from papers published at robotics, ML and CV venues, and checked by a headless-Chrome QA gate.
+Figures are small Python build scripts that output SVG and a 2x PNG, sized and styled after measured ICRA, IROS, RSS and CoRL method figures, and checked by a headless-Chrome QA gate.
 
 Block Diagram Drawer 把文字描述、草图、README、ASCII 图或参考图画成像机器人和 AI 论文插图的框图。
-每张图是一个 Python 构建脚本，输出 SVG 和 2x PNG；字号和风格来自对 359 张已发表机器人、ML、CV 论文方法图的研究，并用无头 Chrome 做质量检查。
+每张图是一个 Python 构建脚本，输出 SVG 和 2x PNG；字号和风格来自对 ICRA、IROS、RSS、CoRL 方法图的实测，并用无头 Chrome 做质量检查。
 
 ## Quick start / 快速开始
 
@@ -15,10 +15,10 @@ python fig_pipeline.py
 python qa_svg_figure.py ../pipeline-figure.svg --png
 ```
 
-The QA gate fails on text overflow, text collisions, overlapping boxes, lines crossing labels, labels that print below 6 pt, labels longer than six words outside example content, low label contrast, a figure median label below 5 pt, too many label or example words for the printed area, or content coverage below 0.40; it also warns on busy palettes, deep nesting and heavy bold.
+The QA gate fails on text overflow, text collisions, overlapping boxes, lines crossing labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget, or content coverage below 0.40.
 Set `CHROME_PATH` if Chrome, Chromium, or Edge is not found.
 
-QA 脚本在以下情况判为不通过：文字溢出、文字重叠、方框重叠、连线穿过文字、印刷后小于 6 pt 的文字、示例内容以外超过六个词的标签、文字对比度过低、整图字号中位数低于 5 pt、标签或示例文字按印刷面积超出预算，或内容覆盖率低于 0.40；配色过杂、嵌套过深、粗体过多时会给出警告。
+QA 脚本在以下情况判为不通过：文字溢出、文字重叠、方框重叠、连线穿过文字、印刷后小于 6 pt 的文字、示例内容以外超过六个词的标签、标签总词数超过画布预算，或内容覆盖率低于 0.40。
 找不到浏览器时设置 `CHROME_PATH`。
 
 ## What it enforces / 规范要点
@@ -43,6 +43,6 @@ QA 脚本在以下情况判为不通过：文字溢出、文字重叠、方框�
 - 开源图标：`scripts/svgicons.py` 按需下载 MIT 许可的 Tabler outline 图标和 LobeHub 模型 logo，并附带许可证和来源记录。
 - 可编辑导出：`scripts/svg2drawio.py` 把画好的图转成 `.drawio` 文件，矩形、文字和连线都是 draw.io 原生对象。
 
-See `SKILL.md` for the workflow, `references/paper-figure-study.md` for the published-figure study, and `references/visual-contract.md` for the full contract.
+See `SKILL.md` for the workflow, `references/paper-figure-study.md` for the measured paper figures, and `references/visual-contract.md` for the full contract.
 
-工作流见 `SKILL.md`，已发表论文插图的研究结论见 `references/paper-figure-study.md`，完整规范见 `references/visual-contract.md`。
+工作流见 `SKILL.md`，论文插图实测结论见 `references/paper-figure-study.md`，完整规范见 `references/visual-contract.md`。
