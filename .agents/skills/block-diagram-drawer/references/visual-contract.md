@@ -208,6 +208,11 @@ Link every text element to its container with `box=` so overflow is checked; fre
 - Curves in schematic plots often cross their own annotations; place annotations in empty plot regions and use a short leader arrow when needed.
 - Gradients, uppercase tracked headers, saturated filled badges, and decorative UI icons are the fastest way to make a figure look machine-generated.
 - A decorative element that looks like data invites misreading; either make it schematic and labeled or remove it.
+- A hand-drawn glyph (a robot arm from strokes, a room from rectangles, a gripper from three lines) can pass at 11 px and read as crude at print size; use a vendored icon for every recognizable object, product or action, and keep hand drawing for data sketches (curves, bars, strips, graphs, plots).
+- Icons carry the figure at 36 to 104 px too, with the display stroke raised to about 2 px; tint them with the role's deep color or a neutral steel gray.
+- Leave at least 12 px between an icon, thumbnail or sketch and the next label; at print size a 4 px gap reads as touching, which is the fastest way to make a figure look unfinished.
+- A row of primitives (tokens, bars, a strip) must be computed from its card's inner width instead of a pill count times a guessed width; figkit registers the token row so an overhang is reported rather than drawn over the card's edge.
+- A math label's line box is about 1.6 times its font size, so two stacked symbols need about 28 px at label size; a symbol placed beside its name usually beats a symbol stacked inside a small plot frame.
 - Tabler sets `stroke-width="2"` on a 24 px grid, which renders thinner at 16 px and heavier at 32 px; place icons with `asset` so the display stroke stays constant.
 - LobeHub color variants carry brand gradients that clash with a muted palette; use the mono variant tinted with ink.
 - A hand-drawn glyph next to a vendored icon of the same kind reads as two styles; replace the whole row.

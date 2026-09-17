@@ -70,7 +70,8 @@ const svg=document.querySelector('svg');
 const W=svg.viewBox.baseVal.width,H=svg.viewBox.baseVal.height;
 const R=b=>({x:b.x,y:b.y,w:b.width,h:b.height});
 const boxes={};
-svg.querySelectorAll('[data-box]').forEach(e=>{boxes[e.dataset.box]=Object.assign(R(e.getBBox()),{kind:e.dataset.kind,id:e.dataset.box});});
+svg.querySelectorAll('[data-box]').forEach(e=>{boxes[e.dataset.box]=Object.assign(R(e.getBBox()),
+  {kind:e.dataset.kind,id:e.dataset.box,qa:e.dataset.qa||''});});
 const overflow=[],texts=[],textEls=[],smallText=[],longText=[];
 const PRINT=parseFloat(svg.dataset.printWidthPt)||__PRINT_PT__||(W>=1000?516:252);
 const MIN_FONT=__MIN_PX__>0?__MIN_PX__*W/1400:__MIN_PT__*W/PRINT;
@@ -225,7 +226,7 @@ textEls.forEach((t,i)=>{ if(t.getAttribute('text-anchor')!=='middle') return; co
   if(!B||B.kind!=='chip'||texts.filter(x=>x!==texts[i]).length===0) return;
   const off=(texts[i].x+texts[i].w/2)-(B.x+B.w/2); if(Math.abs(off)>3) offCenter.push({s:texts[i].s,off:+off.toFixed(1)});});
 const fills=[]; const emptyBoxes=[];
-Object.values(boxes).filter(b=>['card','chip','example'].includes(b.kind)).forEach(b=>{
+Object.values(boxes).filter(b=>['card','chip','example'].includes(b.kind)&&b.qa!=='ignore').forEach(b=>{
   const area=b.w*b.h; if(area<400) return;
   const inked=texts.filter(t=>t.x>=b.x-1&&t.y>=b.y-1&&t.x+t.w<=b.x+b.w+1&&t.y+t.h<=b.y+b.h+1).reduce((s2,t)=>s2+t.w*t.h,0);
   const others=Object.values(boxes).filter(o=>o!==b&&o.x>=b.x-1&&o.y>=b.y-1&&o.x+o.w<=b.x+b.w+1&&o.y+o.h<=b.y+b.h+1);

@@ -60,7 +60,9 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - A long feedback wire needs a lane: reserve a gutter between columns or run it through a panel title row, and give its label a knock-out (`knockout=True`) so it sits on the wire instead of beside a card.
 - Curves and straight lines are both fine, but no wire may overlap another, cross a card it does not attach to, or stop short of its box.
 - Use bold only for panel titles and key words, medium weight for module names, serif italic for data names and language, monospace for tokens, identifiers and code, and `$...$` for every symbol.
-- Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces, block arrows between stages) and vendored open-source icons for recognizable objects and named products.
+- Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces, block arrows between stages) and vendored open-source icons for recognizable objects, products and actions.
+- Draw by hand only what no icon can say: data sketches, graphs and plots. A hand-built robot, room or gripper glyph survives at 11 px and reads as crude at print size, so reach for `svgicons.py` first and give the icon 36 to 104 px with a 2 px display stroke.
+- Keep at least 12 px of clear space between an icon, thumbnail or sketch and the next label, and compute rows of primitives from the card's inner width so nothing hangs over an edge.
 - Pass `box=` for every label inside a container so the gate can check overflow and exempt example content.
 
 ### 4. Gate, look, fix, repeat

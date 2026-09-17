@@ -378,6 +378,15 @@ class LayoutTests(unittest.TestCase):
         y = float(re.search(r'y="([\d.]+)"', label_markup(f, "back")).group(1))
         self.assertAlmostEqual(y, 513.0, places=1)  # above the lane at y 520
 
+    def test_token_row_is_registered_so_overhang_is_caught(self) -> None:
+        f = figkit.Fig(400, 200)
+        card = f.card(10, 10, 120, 40, "blue")
+        width = f.tokens(20, 20, 8, "gray", w=16, h=10, gap=4)
+        self.assertEqual(width, 8 * 16 + 7 * 4)
+        row = f.rects[next(k for k in f.rects if k.startswith("tk"))]
+        self.assertEqual(row, (20, 20, float(width), 10))
+        self.assertGreater(row[0] + row[2], f.rect(card)[0] + f.rect(card)[2])  # the gate now sees the overhang
+
     def test_zone_anchors_connectors_without_drawing(self) -> None:
         f = figkit.Fig(1400, 500)
         z = f.zone(100, 100, 200, 60)

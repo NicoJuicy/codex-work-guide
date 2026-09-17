@@ -644,7 +644,11 @@ class Fig:
     # -- shapes with meaning ----------------------------------------------------
     def tokens(self, x, y, n, role, w=16, h=8, gap=4, lit=None, dashed=False, to_role=None):
         """Row of token pills (a sequence). `lit` pills use the role color, the rest stay neutral;
-        `to_role` blends the fill across the row."""
+        `to_role` blends the fill across the row.
+
+        The row is registered as a box, so a row wider than its card is reported by the gate instead of
+        quietly hanging over the card's edge. Returns the row width.
+        """
         p = PAL[role]
         q = PAL[to_role] if to_role else None
         for i in range(n):
@@ -654,7 +658,12 @@ class Fig:
             dash = ' stroke-dasharray="2 1.5"' if dashed else ""
             self.add(f'<rect x="{x + i * (w + gap):.1f}" y="{y}" width="{w}" height="{h}" rx="{h / 2}" fill="{fillc}" '
                      f'stroke="{st}" stroke-width="0.9"{dash}/>')
-        return n * w + (n - 1) * gap
+        width = n * w + (n - 1) * gap
+        cid = self.uid("tk")
+        self.add(f'<rect data-box="{cid}" data-kind="chip" data-qa="ignore" x="{x}" y="{y}" width="{width:.1f}" '
+                 f'height="{h}" rx="{h / 2}" fill="none" stroke="none"/>')
+        self._reg(cid, x, y, width, h)
+        return width
 
     def trapezoid(self, x, y, w, h, role, s=None, size=None, inset=0.16, wide_bottom=True, family="sans", italic=False):
         size = size or self.fs("module")
