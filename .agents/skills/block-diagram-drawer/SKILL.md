@@ -63,6 +63,7 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - Curves and straight lines are both fine, but no wire may overlap another, cross a card it does not attach to, or stop short of its box.
 - Use bold only for panel titles and key words, medium weight for module names, serif italic for data names and language, monospace for tokens, identifiers and code, and `$...$` for every symbol.
 - Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces, block arrows between stages) and vendored open-source icons for recognizable objects, products and actions.
+- Draw networks as networks: `layer_stack` for a deep model (with `repeat="$\\times L$"`), `feature_maps` or `cuboid` for convolutional tensors, `mlp` for a small fully connected net, `token_grid` for token or patch embeddings (`masked`, `highlight`), `vector` for a single embedding, `patch_grid` for an image cut into patches, and `heatmap` for attention. A box that says "encoder" is the last resort.
 - Draw by hand only what no icon can say: data sketches, graphs and plots. A hand-built robot, room or gripper glyph survives at 11 px and reads as crude at print size, so reach for `svgicons.py` first and give the icon 36 to 104 px with a 2 px display stroke.
 - Keep at least 12 px of clear space between an icon, thumbnail or sketch and the next label, and compute rows of primitives from the card's inner width so nothing hangs over an edge.
 - Pass `box=` for every label inside a container so the gate can check overflow and exempt example content.
@@ -100,6 +101,8 @@ Readers recognize a robot arm, camera, door, target or checklist faster than the
 | `phosphor` | MIT | fill | 9000 icons in one solid-outline style, the richest vocabulary |
 | `material` | Apache-2.0 | fill | 3700 Material Symbols at weight 400; the only family with real machine and robotics vocabulary (`precision_manufacturing`, `conveyor_belt`) |
 | `material200` | Apache-2.0 | fill | the same set at weight 200, for an icon that carries a card at 60 px or more |
+| `fluentemoji` | MIT | colour | 1200 Microsoft Fluent Emoji, Flat style: objects in a scene (package, apple, camera, robot) and the 🔥 / ❄ trained and frozen marks; place with `color=None` |
+| `fluent` | MIT | fill | 2700 Microsoft Fluent UI System Icons; the largest regular drawing of each is vendored, so detail holds at 36 px and more |
 | `lobe` | MIT | logos | logos of AI models and providers (`qwen`, `openai`, `claude`) |
 
 ```bash
@@ -111,6 +114,7 @@ python <skill-dir>/scripts/svgicons.py get material:precision_manufacturing --ou
 Place an icon with `f.asset(HERE / "assets" / "m-arm.svg", x, y, 104, color=STEEL)`; figkit validates the file, embeds it once as a symbol, normalizes a line icon's display stroke, and tints a solid icon through `currentColor`.
 
 - Search several synonyms across families, render the candidates on a contact sheet at the size they will be used, and pick the silhouette that names the object. A robot arm, a cup and a door are different icons in every family, and the weight that looks right at 40 px is often too heavy at 96 px.
+- Mix by job, not at random: colour Fluent Emoji for objects inside frames and scenes and for the trained and frozen marks, one monochrome family for pictograms beside labels, and the Material manipulator when a robot arm is meant.
 - Keep one family per figure, chosen because it has every object the figure needs; never mix a stroke family with a fill family, or either with the built-in `icon()` glyphs. Borrowing one icon from a second family is fine when the first has no word for it (a Material manipulator inside a Phosphor figure) as long as both are the same style and weight.
 - When the family choice matters, make it a switch instead of an argument: read the set from an environment variable, keep each set in `assets/set-<name>/<slot>.svg` with one file name per slot, and build the same figure two or three times. Crop the icon-heavy band from each PNG, stack the crops, and choose from the stack.
 - Stroke families take `sw` (1.5 px default, 2 px from about 36 px up); fill families carry their own weight, so step down to a lighter weight (`material200`) instead of enlarging a heavy one.

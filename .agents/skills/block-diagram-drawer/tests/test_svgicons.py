@@ -65,10 +65,25 @@ class SearchTests(unittest.TestCase):
         for name, family in svgicons.FAMILIES.items():
             with self.subTest(family=name):
                 self.assertTrue((svgicons.LICENSES / family.license_file).is_file())
-                self.assertIn(family.style, ("stroke", "fill", "logo"))
+                self.assertIn(family.style, ("stroke", "fill", "color", "logo"))
                 self.assertTrue(family.index_url.startswith(family.allowed))
-                self.assertTrue(family.raw_url.startswith(family.allowed))
+                self.assertTrue((family.raw_base or family.raw_url).startswith(family.allowed))
         self.assertEqual(svgicons.FAMILIES["material200"].license_name, "material")
+
+    def test_path_mapped_families_keep_the_best_file_per_slug(self) -> None:
+        fluent = svgicons.FAMILIES["fluent"]
+        meta = {"files": [{"path": f"/icons/i{n}_24_regular.svg"} for n in range(1000)]
+                + [{"path": "/icons/bot_24_regular.svg"}, {"path": "/icons/bot_48_regular.svg"},
+                   {"path": "/icons/bot_48_filled.svg"}]}
+        paths = svgicons.parse_paths(fluent, json.dumps(meta).encode())
+        self.assertEqual(paths["bot"], "icons/bot_48_regular.svg")  # largest drawing, line style
+        emoji = svgicons.FAMILIES["fluentemoji"]
+        tree = {"tree": [{"path": f"assets/E {n}/Flat/e_{n}_flat.svg"} for n in range(900)]
+                + [{"path": "assets/Hot beverage/Flat/hot_beverage_flat.svg"},
+                   {"path": "assets/Hot beverage/Color/hot_beverage_color.svg"}]}
+        paths = svgicons.parse_paths(emoji, json.dumps(tree).encode())
+        self.assertEqual(paths["hot_beverage"], "assets/Hot beverage/Flat/hot_beverage_flat.svg")
+        self.assertIn("hot_beverage", svgicons.parse_index(emoji, json.dumps(tree).encode()))
 
     def test_requests_outside_the_allowlist_are_refused(self) -> None:
         with self.assertRaises(ValueError):

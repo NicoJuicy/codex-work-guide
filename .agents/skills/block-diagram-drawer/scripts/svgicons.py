@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Search and vendor open-source SVG icons for block diagrams.
 
-Six families, all permissively licensed. `stroke` families are line icons whose weight `figkit.asset`
+Eight families, all permissively licensed. `stroke` families are line icons whose weight `figkit.asset`
 normalizes; `fill` families are solid-shape icons that keep their own optical weight at any size.
 
 - tabler    (MIT, stroke):        5900 pictograms, the broad default for objects and actions.
@@ -14,6 +14,13 @@ normalizes; `fill` families are solid-shape icons that keep their own optical we
                                   conveyor_belt, ...). Use it from 16 to 48 px.
 - material200 (Apache-2.0, fill): the same set at weight 200, for an icon that carries a card at
                                   60 px or more, where weight 400 reads as too heavy.
+- fluentemoji (MIT, color):        1200 Microsoft Fluent Emoji in the Flat style: colour illustrations of
+                                  objects (robot, hot_beverage, door, camera, mechanical_arm, brain, gear).
+                                  The best choice for things inside a scene; place them with
+                                  `f.asset(..., color=None)` so their own colours are kept.
+- fluent    (MIT, fill):          2700 Microsoft Fluent UI System Icons; each icon ships in several sizes
+                                  and the largest regular drawing is vendored, so detail holds up at
+                                  36 px and more.
 - lobe      (MIT, logos):         logos of AI models and providers (qwen, openai, claude, ...).
                                   Logos are trademarks of their owners; use one only for the product
                                   the figure names.
@@ -43,6 +50,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,6 +66,7 @@ LUCIDE_VERSION = "0.544.0"
 PHOSPHOR_VERSION = "2.1.1"
 MATERIAL_VERSION = "0.36.0"
 ICONOIR_VERSION = "7.11.0"
+FLUENT_VERSION = "1.1.292"
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 MAX_RESPONSE_BYTES = 12 * 1024 * 1024
@@ -78,6 +87,7 @@ class Family:
     style: str
     license: str
     license_as: str = ""
+    raw_base: str = ""  # set for families whose files are found through the index's slug -> path map
 
     @property
     def license_name(self) -> str:
@@ -130,6 +140,33 @@ FAMILIES = {
     "material200": _unpkg("material200", f"@material-symbols/svg-200@{MATERIAL_VERSION}", "outlined",
                           "https://fonts.google.com/icons?selected=Material+Symbols+Outlined:{slug}",
                           "material-symbols.txt", "fill", "Apache-2.0", 1000, license_as="material"),
+    "fluentemoji": Family(
+        name="fluentemoji",
+        index_url="https://api.github.com/repos/microsoft/fluentui-emoji/git/trees/main?recursive=1",
+        raw_url="",
+        page_url="https://github.com/microsoft/fluentui-emoji",
+        allowed=("https://api.github.com/repos/microsoft/fluentui-emoji/",
+                 "https://raw.githubusercontent.com/microsoft/fluentui-emoji/"),
+        license_file="fluentui-emoji.txt",
+        min_icons=900,
+        index_re=r"assets/[^/]+/(?:Default/)?Flat/([a-z0-9_]+?)_flat(?:_default)?\.svg",
+        style="color",
+        license="MIT",
+        raw_base="https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/",
+    ),
+    "fluent": Family(
+        name="fluent",
+        index_url=f"https://unpkg.com/@fluentui/svg-icons@{FLUENT_VERSION}/icons/?meta",
+        raw_url="",
+        page_url="https://github.com/microsoft/fluentui-system-icons",
+        allowed=(f"https://unpkg.com/@fluentui/svg-icons@{FLUENT_VERSION}/",),
+        license_file="fluentui-system-icons.txt",
+        min_icons=1000,
+        index_re=r"/icons/([a-z0-9_]+?)_(\d+)_(regular|filled|light)\.svg",
+        style="fill",
+        license="MIT",
+        raw_base=f"https://unpkg.com/@fluentui/svg-icons@{FLUENT_VERSION}/",
+    ),
     "lobe": _unpkg("lobe", f"@lobehub/icons-static-svg@{LOBE_VERSION}", "icons",
                    "https://github.com/lobehub/lobe-icons", "lobe-icons.txt", "logo", "MIT", 100),
 }
@@ -173,32 +210,75 @@ def request_bytes(url: str, family: Family, timeout: float = 20.0) -> bytes:
     return payload
 
 
-def parse_index(family: Family, payload: bytes) -> list[str]:
-    """Extract icon slugs from a GitHub tree (tabler) or an unpkg directory listing (everything else)."""
+def _listing(family: Family, payload: bytes) -> list[str]:
     document = json.loads(payload)
-    if family.name == "tabler":
+    if "tree" in document:  # a GitHub tree
         if document.get("truncated"):
             raise ValueError("GitHub tree response was truncated")
-        paths = [str(item.get("path", "")) for item in document.get("tree", [])]
+        return [str(item.get("path", "")) for item in document.get("tree", [])]
+    return [str(item.get("path", "")) for item in document.get("files", [])]  # an unpkg listing
+
+
+def parse_paths(family: Family, payload: bytes) -> dict[str, str]:
+    """Slug -> file path for families whose file names are not the slug: Fluent Emoji keeps each emoji in a
+    folder named in words, and Fluent System Icons ship every icon in several sizes, of which the largest
+    regular one is kept because its drawing is tuned for figure sizes."""
+    chosen: dict[str, tuple[tuple[int, int], str]] = {}
+    for path in _listing(family, payload):
+        m = re.fullmatch(family.index_re, path)
+        if not m:
+            continue
+        rank = (0, 0)
+        if family.name == "fluent":
+            rank = ({"regular": 2, "light": 1, "filled": 0}[m.group(3)], int(m.group(2)))
+        elif "/Default/" not in path:
+            rank = (1, 0)
+        if m.group(1) not in chosen or rank > chosen[m.group(1)][0]:
+            chosen[m.group(1)] = (rank, path.lstrip("/"))
+    return {slug: path for slug, (_, path) in chosen.items()}
+
+
+def parse_index(family: Family, payload: bytes) -> list[str]:
+    """Extract icon slugs from a GitHub tree or an unpkg directory listing."""
+    if family.raw_base:
+        slugs = sorted(parse_paths(family, payload))
     else:
-        paths = [str(item.get("path", "")) for item in document.get("files", [])]
-    slugs = sorted({m.group(1) for p in paths if (m := re.fullmatch(family.index_re, p))
-                    and not m.group(1).endswith(("-fill", "_fill"))})
+        slugs = sorted({m.group(1) for p in _listing(family, payload) if (m := re.fullmatch(family.index_re, p))
+                        and not m.group(1).endswith(("-fill", "_fill"))})
     if len(slugs) < family.min_icons:
         raise ValueError(f"unexpectedly small {family.name} index: {len(slugs)} icons")
     return slugs
 
 
-def load_index(family: Family, cache_dir: Path, refresh: bool = False) -> list[str]:
+def _cached(family: Family, cache_dir: Path, refresh: bool) -> dict:
     cache = cache_dir / f"{family.name}-index.json"
     if cache.exists() and not refresh and time.time() - cache.stat().st_mtime <= CACHE_SECONDS:
-        icons = json.loads(cache.read_text(encoding="utf-8")).get("icons", [])
-        if isinstance(icons, list) and icons and all(SLUG_RE.fullmatch(str(i)) for i in icons):
-            return [str(i) for i in icons]
-    icons = parse_index(family, request_bytes(family.index_url, family))
+        document = json.loads(cache.read_text(encoding="utf-8"))
+        icons = document.get("icons", [])
+        if isinstance(icons, list) and icons and all(SLUG_RE.fullmatch(str(i)) for i in icons) \
+                and (not family.raw_base or isinstance(document.get("paths"), dict)):
+            return document
+    payload = request_bytes(family.index_url, family)
+    document = {"source": family.index_url, "icons": parse_index(family, payload)}
+    if family.raw_base:
+        document["paths"] = parse_paths(family, payload)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    _atomic_write(cache, json.dumps({"source": family.index_url, "icons": icons}, indent=1).encode("utf-8"))
-    return icons
+    _atomic_write(cache, json.dumps(document, indent=1).encode("utf-8"))
+    return document
+
+
+def load_index(family: Family, cache_dir: Path, refresh: bool = False) -> list[str]:
+    return [str(i) for i in _cached(family, cache_dir, refresh)["icons"]]
+
+
+def source_url(family: Family, slug: str, cache_dir: Path | None = None) -> str:
+    """Where an icon is downloaded from; path-mapped families look the file up in the cached index."""
+    if not family.raw_base:
+        return family.raw_url.format(slug=slug)
+    paths = _cached(family, cache_dir or default_cache_dir(), False).get("paths", {})
+    if slug not in paths:
+        raise ValueError(f"{family.name} has no icon {slug!r}; search first")
+    return family.raw_base + urllib.parse.quote(paths[slug])
 
 
 def query_tokens(query: str) -> list[str]:
@@ -263,13 +343,13 @@ def record(ledger: Path, file_name: str, family: Family, source: str) -> None:
     _atomic_write(ledger, (LEDGER_HEADER + "\n".join(sorted(rows)) + "\n").encode("utf-8"))
 
 
-def vendor(ref: str, out: Path, force: bool = False) -> dict[str, str]:
+def vendor(ref: str, out: Path, force: bool = False, cache_dir: Path | None = None) -> dict[str, str]:
     family, slug = parse_ref(ref)
     if out.suffix != ".svg":
         raise ValueError(f"output must be an .svg file, got {out}")
     if out.exists() and not force:
         raise FileExistsError(f"refusing to overwrite {out}; pass --force")
-    source = family.raw_url.format(slug=slug)
+    source = source_url(family, slug, cache_dir)
     payload = request_bytes(source, family)
     try:
         parse_svg_asset(payload.decode("utf-8"), f"{slug}.svg")
@@ -318,7 +398,7 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"{m.family}:{m.slug:<34} {fam.style:<6} score={m.score:>3}  "
                           f"{fam.page_url.format(slug=m.slug)}")
             return 0
-        result = vendor(args.ref, args.out, args.force)
+        result = vendor(args.ref, args.out, args.force, args.cache_dir)
         print(json.dumps(result, indent=2) if args.json else result["output"])
         return 0
     except (FileExistsError, ValueError, urllib.error.URLError) as exc:

@@ -411,6 +411,41 @@ class LayoutTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             f.trapezoid(0, 0, 10, 10, "blue", direction="sideways")
 
+    def test_neural_network_visuals_register_their_boxes(self) -> None:
+        f = figkit.Fig(900, 300)
+        grid = f.patch_grid(10, 10, 88, 66, 3, 4, masked=((0, 1),), content=lambda x, y, w, h: None)
+        vec = f.vector(120, 10, 5, "blue", cell=10, gap=2)
+        toks = f.token_grid(150, 10, 2, 4, "amber", cell=12, gap=2, masked=((0, 0),), highlight=((1, 3),))
+        heat = f.heatmap(220, 10, 4, 4, "red", cell=8)
+        stack = f.layer_stack(280, 10, 60, 80, 3, "blue", s="$E$", depth=5, repeat="$\\times L$")
+        maps = f.feature_maps(360, 60, ((8, 40), (12, 30)), "blue", gap=6)
+        net = f.mlp(460, 10, 100, 80, (3, 4, 2), "purple")
+        self.assertEqual(f.rect(vec), (120.0, 10.0, 10.0, 58.0))
+        self.assertEqual(f.rect(toks), (150.0, 10.0, 54.0, 26.0))
+        self.assertEqual(f.rect(heat), (220.0, 10.0, 32.0, 32.0))
+        self.assertEqual(f.rect(stack), (280.0, 20.0, 60.0, 70.0))  # full width, front-face height
+        self.assertEqual(f.rect(f.stack_front)[1:], (20, 50, 70))
+        self.assertEqual(len(maps), 2)
+        self.assertEqual(f.rect(net), (460.0, 10.0, 100.0, 80.0))
+        svg = f.svg()
+        ET.fromstring(svg)
+        self.assertEqual(svg.count("<circle"), 9)  # one node per unit
+        self.assertIn('stroke-dasharray="2 1.5"', svg)  # the masked token
+        self.assertTrue(grid)
+
+    def test_colour_assets_keep_their_paint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            icon = Path(tmp) / "cup.svg"
+            icon.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">'
+                            '<path d="M0 0h8v8H0z" fill="#000"/><path d="M8 8h8v8H8z" fill="#D3D3D3"/></svg>')
+            f = figkit.Fig(200, 100)
+            f.asset(icon, 10, 10, 32, color=None)
+            f.asset(icon, 60, 10, 32)
+            svg = f.svg()
+        self.assertEqual(svg.count("<symbol"), 2)  # the coloured and the tinted copies are separate symbols
+        self.assertIn('fill="#000"', svg)
+        self.assertIn('fill="currentColor"', svg)
+
     def test_token_row_is_registered_so_overhang_is_caught(self) -> None:
         f = figkit.Fig(400, 200)
         card = f.card(10, 10, 120, 40, "blue")

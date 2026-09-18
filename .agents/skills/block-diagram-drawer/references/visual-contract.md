@@ -123,7 +123,7 @@ Method-specific structure (graphs, token rows, kinematic chains, curves) stays a
 
 ### 4.5 Open-source icons
 
-- Source icons with `scripts/svgicons.py`, which spans six permissively licensed families: `tabler`, `lucide` and `iconoir` (line), `phosphor` and Material Symbols `material` / `material200` (solid outline), and `lobe` for model and provider logos. Only the selected files are downloaded.
+- Source icons with `scripts/svgicons.py`, which spans eight permissively licensed families, including colour Fluent Emoji for scene objects and Fluent UI System Icons, and before them: `tabler`, `lucide` and `iconoir` (line), `phosphor` and Material Symbols `material` / `material200` (solid outline), and `lobe` for model and provider logos. Only the selected files are downloaded.
 - Material Symbols is the only family with real machine and robotics vocabulary, so a figure that needs a manipulator, a conveyor or a sensor usually adopts it for everything.
 - Compare candidates per noun on a contact sheet rendered with `asset` at the size they will be used, and choose the silhouette that names the object.
 - Use one family per figure; do not mix a stroke family with a fill family, or either with built-in `icon()` glyphs. One borrowed icon is acceptable when no other family has the word for it and the style and weight match.
@@ -244,6 +244,11 @@ Link every text element to its container with `box=` so overflow is checked; fre
 | `image(path, x, y, w, h, fit="cover", r=3, frame=HAIR)` | embed a PNG, JPEG or WebP render or photo (up to 8 MB) as a data URI with a thin frame |
 | `chip`, `badge`, `pill`, `step` | small labeled containers, quiet number tags, connector labels, circled step numbers |
 | `text(x, y, s, size, weight, color, anchor, box=id, family="sans", italic=False)` | rich text with `$math$`; `family` is `sans`, `serif`, or `mono` |
+| `layer_stack(x, y, w, h, n, role, s, repeat)` | a deep network as n stacked layers; returns a box of full width and front-face height, and leaves the front in `f.stack_front` |
+| `feature_maps(x, cy, [(thickness, side), ...], role)`, `cuboid(x, y, w, h, d, role)` | convolutional feature maps and tensors with depth |
+| `mlp(x, y, w, h, layers, role)` | node-link diagram of a fully connected network |
+| `token_grid(x, y, rows, cols, role, masked, highlight)`, `vector(x, y, n, role)` | token or patch embeddings, and one embedding |
+| `patch_grid(x, y, w, h, rows, cols, masked, content)`, `heatmap(x, y, rows, cols, role)` | an image cut into patches over drawn content, and an attention map |
 | `tokens`, `trapezoid(direction=up/down/left/right, dashed)`, `bracket`, `cylinder`, `bubble`, `block_arrow` | shapes with meaning (section 4.4); a `right` trapezoid is an encoder in a left-to-right flow, a dashed one an EMA copy |
 | `cols(x0, x1, n, gap)`, `rows(y0, y1, n, gap)` | n equal columns or rows with equal gaps, snapped to whole pixels |
 | `place(x0, x1, widths, gap=None)` | x positions for a run of given widths: equal gaps, run centered |

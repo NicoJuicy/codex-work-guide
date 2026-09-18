@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import itertools
 import math
 import re
 import xml.etree.ElementTree as ET
@@ -300,8 +301,11 @@ def _local(name: str) -> str:
     return name.rsplit("}", 1)[-1]
 
 
-def parse_svg_asset(raw: str, source: str = "asset") -> SvgAsset:
-    """Validate a small standalone SVG and turn it into symbol-ready markup with namespaced ids."""
+def parse_svg_asset(raw: str, source: str = "asset", tint: bool = True) -> SvgAsset:
+    """Validate a small standalone SVG and turn it into symbol-ready markup with namespaced ids.
+
+    With `tint` (monochrome icons) literal black paint becomes currentColor so the icon takes the figure's
+    colour; colour illustrations such as Fluent Emoji are parsed with tint=False and keep every fill."""
     bad = _ASSET_UNSAFE.search(raw)
     if bad:
         raise ValueError(f"{source}: unsafe SVG content near {bad.group(0)!r}")
@@ -332,8 +336,8 @@ def parse_svg_asset(raw: str, source: str = "asset") -> SvgAsset:
             else:
                 value = re.sub(r"url\(\s*#([^)\s]+)\s*\)", lambda m: f"url(#{slug}-{m.group(1)})", value)
             el.set(key, value)
-    painted = False
-    for el in root.iter():
+    painted = not tint
+    for el in root.iter() if tint else ():
         for key in ("fill", "stroke"):
             value = (el.get(key) or "").strip()
             if not value or value.lower() == "none":
@@ -349,9 +353,9 @@ def parse_svg_asset(raw: str, source: str = "asset") -> SvgAsset:
     return SvgAsset(slug, vb, f"<g{attrs}>{children}</g>")
 
 
-def load_svg_asset(path) -> SvgAsset:
+def load_svg_asset(path, tint: bool = True) -> SvgAsset:
     path = Path(path)
-    return parse_svg_asset(path.read_text(encoding="utf-8"), str(path))
+    return parse_svg_asset(path.read_text(encoding="utf-8"), str(path), tint)
 
 
 def load_raster(path) -> tuple[str, bytes]:
@@ -654,6 +658,156 @@ class Fig:
         self.add(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="#FFFFFF" stroke="{color}" stroke-width="1"/>')
         self.text(cx, cy + size * 0.36, str(n), size=size, color=color, anchor="middle")
 
+    # -- neural-network visuals ------------------------------------------------
+    _SHADES = (0.35, 0.85, 0.5, 0.95, 0.25, 0.7, 0.45, 0.8, 0.3, 0.6, 0.9, 0.4)
+
+    def _shade(self, role, v):
+        p = PAL[role]
+        return _mix(p.tint, p.accent, 0.15 + 0.8 * v)
+
+    def patch_grid(self, x, y, w, h, rows, cols, masked=(), content=None, fill="#EEF0F0", line="#FFFFFF",
+                   mask_fill="#C9C4B8", frame="#B9B4A8"):
+        """An image cut into patches (ViT, MAE, JEPA). `content(x, y, w, h)` draws the picture between the
+        background and the grid, `masked` lists (row, col) patches that are hidden from the encoder."""
+        box = self.card(x, y, w, h, fill=fill, stroke=frame, r=2, kind="thumb")
+        if content:
+            content(x, y, w, h)
+        cw, ch = w / cols, h / rows
+        for r, c in masked:
+            self.add(f'<rect data-qa="ignore" x="{x + c * cw:.1f}" y="{y + r * ch:.1f}" width="{cw:.1f}" '
+                     f'height="{ch:.1f}" fill="{mask_fill}"/>')
+        grid = "".join(f"M{x + c * cw:.1f} {y}V{y + h}" for c in range(1, cols))
+        grid += "".join(f"M{x} {y + r * ch:.1f}H{x + w}" for r in range(1, rows))
+        self.add(f'<path data-qa="ignore" d="{grid}" fill="none" stroke="{line}" stroke-width="1.2"/>')
+        self.add(f'<rect data-qa="ignore" x="{x}" y="{y}" width="{w}" height="{h}" rx="2" fill="none" '
+                 f'stroke="{frame}" stroke-width="1"/>')
+        return box
+
+    def vector(self, x, y, n, role, cell=12, vertical=True, values=None, gap=1):
+        """An embedding drawn as n cells shaded by value, the usual picture of z or h. Returns its box id."""
+        values = values or [self._SHADES[i % len(self._SHADES)] for i in range(n)]
+        for i, v in enumerate(values[:n]):
+            cx, cy = (x, y + i * (cell + gap)) if vertical else (x + i * (cell + gap), y)
+            self.add(f'<rect x="{cx:.1f}" y="{cy:.1f}" width="{cell}" height="{cell}" rx="1.5" '
+                     f'fill="{self._shade(role, v)}" stroke="{PAL[role].accent}" stroke-width="0.8"/>')
+        span = n * cell + (n - 1) * gap
+        w, h = (cell, span) if vertical else (span, cell)
+        return self._box("chip", x, y, w, h)
+
+    def token_grid(self, x, y, rows, cols, role, cell=12, gap=2, values=None, masked=(), highlight=(),
+                   highlight_role="red"):
+        """A grid of tokens or patch embeddings. `masked` cells are drawn empty and dashed (not seen),
+        `highlight` cells take a second role, for example the targets a predictor has to fill in."""
+        k = 0
+        for r in range(rows):
+            for c in range(cols):
+                cx, cy = x + c * (cell + gap), y + r * (cell + gap)
+                if (r, c) in masked:
+                    self.add(f'<rect x="{cx:.1f}" y="{cy:.1f}" width="{cell}" height="{cell}" rx="1.5" '
+                             f'fill="#FFFFFF" stroke="#B9B4A8" stroke-width="0.8" stroke-dasharray="2 1.5"/>')
+                    continue
+                v = (values[k] if values else self._SHADES[k % len(self._SHADES)])
+                use = highlight_role if (r, c) in highlight else role
+                self.add(f'<rect x="{cx:.1f}" y="{cy:.1f}" width="{cell}" height="{cell}" rx="1.5" '
+                         f'fill="{self._shade(use, v)}" stroke="{PAL[use].accent}" stroke-width="0.8"/>')
+                k += 1
+        return self._box("chip", x, y, cols * cell + (cols - 1) * gap, rows * cell + (rows - 1) * gap)
+
+    def heatmap(self, x, y, rows, cols, role, cell=10, values=None):
+        """An attention or similarity map; the default values concentrate near the diagonal."""
+        for r in range(rows):
+            for c in range(cols):
+                v = values[r][c] if values else max(0.08, 1 - abs(r - c * rows / max(cols, 1)) / 2.2)
+                self.add(f'<rect x="{x + c * cell:.1f}" y="{y + r * cell:.1f}" width="{cell}" height="{cell}" '
+                         f'fill="{PAL[role].accent}" fill-opacity="{0.1 + 0.85 * min(1, v):.2f}"/>')
+        self.add(f'<rect data-qa="ignore" x="{x}" y="{y}" width="{cols * cell}" height="{rows * cell}" '
+                 f'fill="none" stroke="{PAL[role].mid}" stroke-width="0.8"/>')
+        return self._box("chip", x, y, cols * cell, rows * cell)
+
+    def layer_stack(self, x, y, w, h, n, role, s=None, size=None, depth=5, repeat=None, fill=None,
+                    dashed=False, key=False, family="sans", italic=False):
+        """A deep network drawn as n stacked layers inside the footprint (x, y, w, h): the back layers step up
+        and to the right by `depth`, the front layer carries the label, and `repeat` (for example
+        "$\\times L$") marks how many blocks the stack stands for. Returns the footprint's box id, so a wire
+        leaving to the right starts clear of the back sheets; the front face is left in `self.stack_front`."""
+        p = PAL[role]
+        off = depth * (n - 1)
+        fw, fh = w - off, h - off
+        for k in range(n - 1, 0, -1):
+            o = depth * k
+            self.add(f'<rect data-qa="ignore" x="{x + o}" y="{y + off - o}" width="{fw}" height="{fh}" rx="6" '
+                     f'fill="{_mix(fill or p.tint, "#FFFFFF", 0.25 + 0.12 * k)}" stroke="{p.accent}" '
+                     f'stroke-opacity="{0.35 + 0.1 * (n - k)}" stroke-width="1"/>')
+        front = self.card(x, y + off, fw, fh, fill=fill or p.tint, stroke=INK if key else p.accent,
+                          sw=1.4 if key else 1.1, r=6, dashed=dashed, kind="card")
+        if s:
+            size = size or self.fs("label")
+            self.text(x + fw / 2, y + off + fh / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle",
+                      box=front, family=family, italic=italic)
+        if repeat:
+            rs = self.fs("min")
+            self.text(x + w, y - 4, repeat, size=rs, color=p.deep, anchor="end")
+        self.stack_front = front  # the front face, for a label or marker placed by the caller
+        # the box spans the whole width (a wire leaving right starts clear of the back sheets) but only the
+        # front face's height, so stacks with different layer counts still line up on their front faces
+        return self._box("card", x, y + off, w, h - off)
+
+    def cuboid(self, x, y, w, h, d, role, fill=None, shade=0.0):
+        """A block with depth: front face w x h at (x, y + d/2), receding up and to the right by d.
+        The footprint is (x, y, w + 0.7 d, h + 0.5 d). Returns the front face's box id."""
+        p = PAL[role]
+        dx, dy = 0.7 * d, 0.5 * d
+        fy = y + dy
+        face = _mix(fill or p.mid, p.accent, shade)
+        top = _mix(face, "#FFFFFF", 0.35)
+        side = _mix(face, p.deep, 0.25)
+        self.add(f'<path d="M{x} {fy:.1f}L{x + dx:.1f} {y:.1f}H{x + w + dx:.1f}L{x + w} {fy:.1f}Z" fill="{top}" '
+                 f'stroke="{p.accent}" stroke-width="0.8" stroke-linejoin="round"/>')
+        self.add(f'<path d="M{x + w} {fy:.1f}L{x + w + dx:.1f} {y:.1f}V{y + h:.1f}L{x + w} {fy + h:.1f}Z" '
+                 f'fill="{side}" stroke="{p.accent}" stroke-width="0.8" stroke-linejoin="round"/>')
+        self.add(f'<rect x="{x}" y="{fy:.1f}" width="{w}" height="{h}" fill="{face}" stroke="{p.accent}" '
+                 f'stroke-width="0.8"/>')
+        return self._box("card", x, fy, w, h)
+
+    def feature_maps(self, x, cy, maps, role, gap=10, depth=0.45):
+        """CNN feature maps as a row of blocks, one (thickness, side) pair each: the front face is thickness
+        wide and side tall, the depth is `depth` x side, and every block is centred on the line cy. Returns
+        the box ids from left to right."""
+        ids = []
+        for i, (thick, side) in enumerate(maps):
+            d = depth * side
+            ids.append(self.cuboid(x, cy - (side + 0.5 * d) / 2, thick, side, d, role, shade=0.12 * i))
+            x += thick + 0.7 * d + gap
+        return ids
+
+    def mlp(self, x, y, w, h, layers, role, r=5, edge=HAIR, fill="#FFFFFF"):
+        """A fully connected network as a node-link diagram: one column of nodes per layer, every node joined
+        to every node of the next layer. Returns the box id of the whole drawing."""
+        n = len(layers)
+        xs = [x + r + (w - 2 * r) * i / max(1, n - 1) for i in range(n)]
+        cols = []
+        for cx, k in zip(xs, layers):
+            step = (h - 2 * r) / max(1, k - 1) if k > 1 else 0
+            top = y + r + ((h - 2 * r) - step * (k - 1)) / 2
+            cols.append([(cx, top + i * step) for i in range(k)])
+        lines = "".join(f"M{ax:.1f} {ay:.1f}L{bx:.1f} {by:.1f}" for a, b in itertools.pairwise(cols)
+                        for ax, ay in a for bx, by in b)
+        self.add(f'<path data-qa="ignore" d="{lines}" fill="none" stroke="{edge}" stroke-width="0.8"/>')
+        p = PAL[role]
+        for i, col in enumerate(cols):
+            shade = p.tint if 0 < i < n - 1 else p.mid
+            for cx, cy in col:
+                self.add(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{shade if fill is None else fill}" '
+                         f'stroke="{p.accent}" stroke-width="1"/>')
+        return self._box("chip", x, y, w, h)
+
+    def _box(self, kind, x, y, w, h):
+        """Register an invisible QA box around a drawing so overlap, coverage and anchoring see it."""
+        cid = self.uid("nn")
+        self.add(f'<rect data-box="{cid}" data-kind="{kind}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" '
+                 f'height="{h:.1f}" fill="none" stroke="none"/>')
+        return self._reg(cid, x, y, w, h)
+
     # -- shapes with meaning ----------------------------------------------------
     def tokens(self, x, y, n, role, w=16, h=8, gap=4, lit=None, dashed=False, to_role=None):
         """Row of token pills (a sequence). `lit` pills use the role color, the rest stay neutral;
@@ -771,19 +925,21 @@ class Fig:
         """Place a vendored open-source SVG (see svgicons.py) as a reusable symbol.
 
         `size` is the display width and the height follows the viewBox. `sw` is the display stroke width,
-        so outline icons keep one optical weight at any size; `color` feeds currentColor. The icon gets a
-        QA box, so it is checked for overlaps and counted in coverage. Returns that box id.
+        so outline icons keep one optical weight at any size; `color` feeds currentColor, and `color=None`
+        keeps a colour illustration's own paint (Fluent Emoji). The icon gets a QA box, so it is checked for
+        overlaps and counted in coverage. Returns that box id.
         """
-        key = str(Path(path).resolve())
+        tint = color is not None
+        key = (str(Path(path).resolve()), tint)
         if key not in self._assets:
-            self._assets[key] = load_svg_asset(path)
+            self._assets[key] = load_svg_asset(path, tint)
         a = self._assets[key]
-        sid = f"as-{a.slug}"
+        sid = f"as-{a.slug}" + ("" if tint else "-c")
         vx, vy, vw, vh = a.view_box
         if sid not in self.defs:
             self.defs[sid] = f'<symbol id="{sid}" viewBox="{vx:g} {vy:g} {vw:g} {vh:g}">{a.body}</symbol>'
         h = size * vh / vw
-        self.add(f'<use href="#{sid}" x="{x}" y="{y}" width="{size}" height="{h:.2f}" color="{color}" '
+        self.add(f'<use href="#{sid}" x="{x}" y="{y}" width="{size}" height="{h:.2f}" color="{color or INK}" '
                  f'stroke-width="{sw * vw / size:.3f}"/>')
         bid = self.uid("ic")
         self.add(f'<rect data-box="{bid}" data-kind="icon" x="{x}" y="{y}" width="{size}" height="{h:.2f}" '
