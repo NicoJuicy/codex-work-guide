@@ -169,6 +169,18 @@ Published figures read as tidy because equivalent things share an edge, peers sh
 - Give the arrowheads of parallel relations the same fractions along the shared edges (`ta`, `tb`), so a bundle of edges stays parallel and evenly spaced.
 - Curves are allowed, straight lines are allowed, but overlapping wires and ends that miss their box are not; `--strict-tidy` turns those into failures.
 
+### 6.2 Local structure: row lines, halves and straight cross-band wires
+
+Symmetry is not only equal widths; it is every peer card agreeing on where its content starts and stops.
+
+- Give each band named row lines and make every card in the band snap to them: one title baseline, one content top, one content bottom, and in a row of tiles one icon band and one name band. When one card's last element ends 14 px above its neighbours', the row reads ragged even if every box is aligned.
+- Treat a card holding a different kind of content the same way: in a row of icon-over-name tiles, a card with a sketch puts the sketch in the icon band and its names in the name band.
+- When two things share a card, split its inner width into equal halves (or thirds) with `place`, and centre each caption under the thing it names; 124 px beside 116 px reads as a mistake.
+- Before drawing wires between bands, check that each can run straight: the source and target cards must overlap in x, or the gutter a wire climbs through must fall inside its target. If a wire needs a jog, move the column edges first; two jogs meeting in a 24 px gutter end in a crossing or a 6 px arrow.
+- Two feedback labels that describe the same kind of flow sit on one line, not wherever each wire's midpoint happens to be.
+- A relation label between two stacked chips needs a gap of about 26 px: a serif line box is about 1.5 em tall even when its ink is half that. Keep the row pitch equal across the thumbnail rather than widening one gap.
+- Every label keeps at least 3 px of clear space, measured on its ink, from any shape or stroke it does not sit in; the gate's `crowded` check reports the offender and its coordinates.
+
 ## 7. Workflow
 
 1. Write the content inventory: inputs, stages, contribution, outputs, every label and number, and which parts may only be schematic.

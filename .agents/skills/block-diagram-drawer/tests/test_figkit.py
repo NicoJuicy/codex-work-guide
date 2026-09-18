@@ -523,6 +523,30 @@ class QaGateTests(unittest.TestCase):
         self.assertIn("textCovered=1", qa.failures(report, 0.0))
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
+    def test_browser_reports_a_label_pressed_against_a_drawing(self) -> None:
+        f = figkit.Fig(600, 300)
+        f.text(20, 40, "rank candidates", size=16)
+        end = 20 + figkit.text_w("rank candidates", 16)
+        f.add(f'<rect x="{end - 4:.0f}" y="28" width="60" height="8" fill="#C9A227"/>')  # butts into the word
+        f.text(20, 120, "query graphs", size=16)
+        f.add('<rect x="160" y="106" width="60" height="8" fill="#C9A227"/>')  # well clear of it
+        card = f.chip(20, 180, 120, 34, "inside", "gray")
+        top = f.card(300, 150, 80, 28, "gray")
+        bottom = f.card(300, 204, 80, 28, "gray")
+        f.connect(top, bottom, sides=("bottom", "top"), label="on", label_size=16)  # serif word in a 26 px gap
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "crowded.svg"
+            f.save(str(path))
+            report = qa.measure(path, _browser_or_none())
+        crowded = [item["s"] for item in report["tidy"]["crowded"]]
+        self.assertIn("rank candidates", crowded)
+        self.assertNotIn("query graphs", crowded)
+        self.assertNotIn("inside", crowded)
+        self.assertNotIn("on", crowded)  # measured on the ink, not on the 1.5 em line box
+        self.assertTrue(card)
+        self.assertTrue(any(k.startswith("tidy.crowded") for k in qa.failures(report, 0.0, strict_tidy=True)))
+
+    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_accepts_a_fork_off_a_trunk(self) -> None:
         f = figkit.Fig(900, 300)
         src = f.card(40, 200, 200, 60, "blue")

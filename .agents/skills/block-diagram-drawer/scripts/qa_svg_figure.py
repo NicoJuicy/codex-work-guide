@@ -24,7 +24,8 @@ acceptance. Reported checks:
               stop short of a box edge or run inside one (edgeGap), wires crossing a card
               they do not attach to (edgeThroughBox), connectors that overlap collinearly
               (edgeOverlap), peer boxes whose edges or centers nearly line up but miss
-              (misalign), and centered chip labels that sit off-center (offCenter).
+              (misalign), centered chip labels that sit off-center (offCenter), and labels
+              pressed within 3 px of a shape or stroke they do not sit in (crowded).
               Reported but never failing: connector crossings, uneven gaps in a run of peers
               (gapUneven), the median text share of cards, and cards that are almost empty.
               Peers are boxes of the same kind in the same container, so nested groups and
@@ -221,6 +222,28 @@ const gapUneven=[];
     runs.filter(r=>r.length>1).forEach(r=>{ const span=Math.max(...r)-Math.min(...r);
       if(span>2) gapUneven.push({kind,at:Math.round(key(bs[0])),gaps:r});});});
 });
+// a label pressed against a drawing: every shape or stroke keeps clear space around text it does not hold
+// measured on the ink, not the line box: a serif line box is about 1.5 em tall, its lowercase ink about half that
+const CLEAR=3, crowded=[];
+const ink2d=document.createElement('canvas').getContext('2d');
+const inkBox=(t,b)=>{const cs=getComputedStyle(t), y=parseFloat(t.getAttribute('y'));
+  if(!isFinite(y)) return b;
+  ink2d.font=`${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const m=ink2d.measureText(t.textContent);
+  const top=Math.max(b.y,y-m.actualBoundingBoxAscent), bot=Math.min(b.y+b.h,y+m.actualBoundingBoxDescent);
+  return bot>top?{x:b.x,y:top,w:b.w,h:bot-top}:b;};
+const gapOf=(a,b)=>Math.hypot(Math.max(0,a.x-(b.x+b.w),b.x-(a.x+a.w)),Math.max(0,a.y-(b.y+b.h),b.y-(a.y+a.h)));
+const holds=(o,t)=>t.x>=o.x-0.5&&t.y>=o.y-0.5&&t.x+t.w<=o.x+o.w+0.5&&t.y+t.h<=o.y+o.h+0.5;
+const shapes=[...svg.querySelectorAll('rect,circle,ellipse,polygon')]
+  .filter(e=>!e.closest('symbol,marker,clipPath,defs,[data-qa=ignore]'))
+  .map(e=>({el:e,b:R(e.getBBox())})).filter(q=>q.b.w>0&&q.b.h>0&&q.b.w<W*0.95);
+textEls.forEach((t,i)=>{const line=texts[i]; if(!line.w) return; let worst=null; const b=inkBox(t,line);
+  shapes.forEach(q=>{ if(q.el.dataset.box&&q.el.dataset.box===t.dataset.in) return; if(holds(q.b,b)) return;
+    const d=gapOf(b,q.b); if(d<CLEAR&&(!worst||d<worst.d))
+      worst={d,what:q.el.tagName+':'+[q.b.x,q.b.y,q.b.w,q.b.h].map(Math.round).join(',')};});
+  wires.forEach(w=>{ let d=1e9; w.pts.forEach(p=>{d=Math.min(d,gapOf(b,{x:p[0],y:p[1],w:0,h:0}));});
+    if(d>0&&d<CLEAR&&(!worst||d<worst.d)) worst={d,what:w.el.tagName+':'+(w.el.getAttribute('d')||'').slice(0,24)};});
+  if(worst) crowded.push({s:line.s,at:[b.x,b.y,b.w,b.h].map(Math.round),against:worst.what,gap:+worst.d.toFixed(1)});});
 const offCenter=[];
 textEls.forEach((t,i)=>{ if(t.getAttribute('text-anchor')!=='middle') return; const B=boxes[t.dataset.in];
   if(!B||B.kind!=='chip'||texts.filter(x=>x!==texts[i]).length===0) return;
@@ -233,7 +256,7 @@ Object.values(boxes).filter(b=>['card','chip','example'].includes(b.kind)&&b.qa!
   const ratio=inked/area; fills.push(+ratio.toFixed(3));
   if(ratio<0.08&&!others.length) emptyBoxes.push({kind:b.kind,at:[Math.round(b.x),Math.round(b.y)],fill:+ratio.toFixed(3)});});
 fills.sort((a,b)=>a-b);
-const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,
+const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,crowded,
   textFillMedian:fills.length?fills[Math.floor(fills.length/2)]:null,emptyBoxes};
 const wordBudget=Math.round(__WORDS_PER_10K__*W*H/10000);
 const out={size:[W,H],texts:texts.length,printWidthPt:PRINT,minFontPx:+MIN_FONT.toFixed(1),overflow,collide,boxOverlap,textCovered,lineText,smallText,longText,
@@ -289,7 +312,7 @@ def render_png(svg_path: Path, size: list[float], browser: str, scale: int = 2) 
     return out
 
 
-TIDY_CHECKS = ("edgeGap", "edgeThroughBox", "edgeOverlap", "misalign", "offCenter")
+TIDY_CHECKS = ("edgeGap", "edgeThroughBox", "edgeOverlap", "misalign", "offCenter", "crowded")
 TIDY_REPORTS = ("gapUneven", "crossings", "emptyBoxes")  # judgement calls, printed but never failing
 
 

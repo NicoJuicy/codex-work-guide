@@ -45,6 +45,8 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - Use 8 px outer margins and 8 to 12 px gutters, share column positions across rows, and keep the figure title out of the canvas.
 - Write the grid down as numbers (panel x-ranges, row y-ranges, card rectangles) before writing code, then express it in code with `f.cols`, `f.rows` and `f.place` instead of typed coordinates, so gutters and columns stay exact through every later edit.
 - Keep one height per row and one width per column; when a row of peers needs different heights, it is two rows, not one sloppy one.
+- Give each band row lines (title baseline, content top, content bottom, and an icon band and a name band in a row of tiles) and snap every card's first and last element to them; split a card shared by two things into equal halves.
+- Before the first wire, check that every cross-band wire can run straight: the two cards must overlap in x, or the gutter it climbs must fall inside the target. Move column edges instead of adding jogs.
 
 ### 3. Assign roles, then draw
 
@@ -71,7 +73,7 @@ Run the QA gate after every edit, and add `--strict-tidy` for any figure that go
 By default it fails on overflow, collisions, box overlaps, labels hidden under a later card, lines through labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget (1 word per 10,000 px², about 70 words at 1400 by 500), and coverage below 0.40.
 When text does not fit, cut words and move explanations to the caption first, then enlarge boxes or the canvas; never shrink type below `f.fs("min")`.
 Relax a limit only on purpose (`--words-per-10k`, `--max-words`, `--min-coverage`), and report the measured value and the reason to the user.
-The `tidy` block measures what a reader calls tidy: `--strict-tidy` fails on connector ends that miss their box (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), overlapping wires (`edgeOverlap`), peer boxes that nearly line up but miss (`misalign`), and off-center chip labels (`offCenter`).
+The `tidy` block measures what a reader calls tidy: `--strict-tidy` fails on connector ends that miss their box (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), overlapping wires (`edgeOverlap`), peer boxes that nearly line up but miss (`misalign`), off-center chip labels (`offCenter`), and labels pressed against a drawing (`crowded`, measured on the ink with 3 px of clear space).
 Fix a `misalign` by making the two boxes share the number, not by nudging one of them.
 `gapUneven`, `crossings`, the text fill and near-empty cards are hints: read them, then decide.
 Passing the gate is necessary, not sufficient, so always open the PNG and inspect it, including crops around dense cards, math, and connectors.
@@ -144,7 +146,7 @@ When the user asks for a more compact figure, keep the content inventory and the
 
 When the user asks only for a better look (colors, fonts, "less AI", "more like a paper"), keep the content inventory unchanged and edit only the visual layer, except that sentences may move into the caption.
 If the user names a venue or the current style is not landing, study five to ten recent method figures from that venue on arXiv HTML pages (the figure images are linked from each `figure` element) and compare them with `references/paper-figure-study.md` before editing; add durable findings to that file.
-Compare the label inventory and caption before and after the restyle.
+Compare the label inventory, the wire inventory (every source and target pair) and the caption before and after the restyle; a rebuilt script that silently drops one arrow is a content change.
 
 ## Language
 
