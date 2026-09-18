@@ -24,8 +24,9 @@ acceptance. Reported checks:
               stop short of a box edge or run inside one (edgeGap), wires crossing a card
               they do not attach to (edgeThroughBox), connectors that overlap collinearly
               (edgeOverlap), peer boxes whose edges or centers nearly line up but miss
-              (misalign), centered chip labels that sit off-center (offCenter), and labels
-              pressed within 3 px of a shape or stroke they do not sit in (crowded).
+              (misalign), centered chip labels that sit off-center (offCenter), labels
+              pressed within 3 px of a shape or stroke they do not sit in (crowded), and
+              drawings or icons that belong to a card but cross its edge (sketchOverflow).
               Reported but never failing: connector crossings, uneven gaps in a run of peers
               (gapUneven), the median text share of cards, and cards that are almost empty.
               Peers are boxes of the same kind in the same container, so nested groups and
@@ -244,6 +245,20 @@ textEls.forEach((t,i)=>{const line=texts[i]; if(!line.w) return; let worst=null;
   wires.forEach(w=>{ let d=1e9; w.pts.forEach(p=>{d=Math.min(d,gapOf(b,{x:p[0],y:p[1],w:0,h:0}));});
     if(d>0&&d<CLEAR&&(!worst||d<worst.d)) worst={d,what:w.el.tagName+':'+(w.el.getAttribute('d')||'').slice(0,24)};});
   if(worst) crowded.push({s:line.s,at:[b.x,b.y,b.w,b.h].map(Math.round),against:worst.what,gap:+worst.d.toFixed(1)});});
+// a drawing that belongs to a card but crosses its edge (curves, glyphs, icons, bars hanging out of their card)
+const sketchOverflow=[];
+const holders=Object.values(boxes).filter(b=>b.kind!=='icon').sort((a,b)=>a.w*a.h-b.w*b.h);
+const drawings=[...svg.querySelectorAll('path,line,polyline,rect,circle,ellipse,polygon,[data-kind=icon]')]
+  .filter(e=>!e.closest('symbol,marker,clipPath,defs,[data-qa=ignore]')&&!(e.dataset.box&&e.dataset.kind!=='icon')
+    &&!e.getAttribute('marker-end')&&!e.getAttribute('marker-start'))
+  .map(e=>({el:e,b:R(e.getBBox())})).filter(q=>q.b.w*q.b.h>4&&q.b.w<W*0.95);
+drawings.forEach(q=>{const a=q.b.w*q.b.h||1;
+  const home=holders.find(o=>{const ix=Math.min(o.x+o.w,q.b.x+q.b.w)-Math.max(o.x,q.b.x),
+    iy=Math.min(o.y+o.h,q.b.y+q.b.h)-Math.max(o.y,q.b.y); return ix>0&&iy>0&&ix*iy>=0.5*a&&o.w*o.h>=a;});
+  if(!home) return;
+  const by=Math.max(home.x-q.b.x,q.b.x+q.b.w-home.x-home.w,home.y-q.b.y,q.b.y+q.b.h-home.y-home.h);
+  if(by>1.5) sketchOverflow.push({what:q.el.tagName+':'+[q.b.x,q.b.y,q.b.w,q.b.h].map(Math.round).join(','),
+    card:home.kind+':'+Math.round(home.x)+','+Math.round(home.y),by:+by.toFixed(1)});});
 const offCenter=[];
 textEls.forEach((t,i)=>{ if(t.getAttribute('text-anchor')!=='middle') return; const B=boxes[t.dataset.in];
   if(!B||B.kind!=='chip'||texts.filter(x=>x!==texts[i]).length===0) return;
@@ -256,7 +271,7 @@ Object.values(boxes).filter(b=>['card','chip','example'].includes(b.kind)&&b.qa!
   const ratio=inked/area; fills.push(+ratio.toFixed(3));
   if(ratio<0.08&&!others.length) emptyBoxes.push({kind:b.kind,at:[Math.round(b.x),Math.round(b.y)],fill:+ratio.toFixed(3)});});
 fills.sort((a,b)=>a-b);
-const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,crowded,
+const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,crowded,sketchOverflow,
   textFillMedian:fills.length?fills[Math.floor(fills.length/2)]:null,emptyBoxes};
 const wordBudget=Math.round(__WORDS_PER_10K__*W*H/10000);
 const out={size:[W,H],texts:texts.length,printWidthPt:PRINT,minFontPx:+MIN_FONT.toFixed(1),overflow,collide,boxOverlap,textCovered,lineText,smallText,longText,
@@ -312,7 +327,7 @@ def render_png(svg_path: Path, size: list[float], browser: str, scale: int = 2) 
     return out
 
 
-TIDY_CHECKS = ("edgeGap", "edgeThroughBox", "edgeOverlap", "misalign", "offCenter", "crowded")
+TIDY_CHECKS = ("edgeGap", "edgeThroughBox", "edgeOverlap", "misalign", "offCenter", "crowded", "sketchOverflow")
 TIDY_REPORTS = ("gapUneven", "crossings", "emptyBoxes")  # judgement calls, printed but never failing
 
 

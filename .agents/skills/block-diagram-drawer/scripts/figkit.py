@@ -595,7 +595,8 @@ class Fig:
         dash = ' stroke-dasharray="4 3"' if dashed else ""
         for k in range(stack, 0, -1):
             o = 4 * k
-            self.add(f'<rect x="{x + o}" y="{y - o}" width="{w}" height="{h}" rx="{r}" fill="{_mix(fl, "#FFFFFF", 0.35)}" '
+            self.add(f'<rect data-qa="ignore" x="{x + o}" y="{y - o}" width="{w}" height="{h}" rx="{r}" '
+                     f'fill="{_mix(fl, "#FFFFFF", 0.35)}" '
                      f'stroke="{st}" stroke-opacity="0.45" stroke-width="{sw}"/>')
         self.add(f'<rect data-box="{cid}" data-kind="{kind}" x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" '
                  f'fill="{fl}" stroke="{st}" stroke-width="{sw}"{dash}/>')
@@ -677,14 +678,28 @@ class Fig:
         self._reg(cid, x, y, width, h)
         return width
 
-    def trapezoid(self, x, y, w, h, role, s=None, size=None, inset=0.16, wide_bottom=True, family="sans", italic=False):
+    def trapezoid(self, x, y, w, h, role, s=None, size=None, inset=0.16, wide_bottom=True, family="sans", italic=False,
+                  direction=None, dashed=False, fill=None):
+        """Encoder or decoder shape. `direction` names the narrow end: "up" or "down" for a vertical stack
+        (the default follows `wide_bottom`), "right" for an encoder in a left-to-right flow, "left" for a
+        decoder. `dashed` marks a copy that gradients do not train, such as an EMA target encoder."""
         size = size or self.fs("module")
         p = PAL[role]
-        d = w * inset
-        pts = (f"{x + d},{y} {x + w - d},{y} {x + w},{y + h} {x},{y + h}" if wide_bottom
-               else f"{x},{y} {x + w},{y} {x + w - d},{y + h} {x + d},{y + h}")
+        direction = direction or ("up" if wide_bottom else "down")
+        if direction in ("up", "down"):
+            d = w * inset
+            pts = (f"{x + d},{y} {x + w - d},{y} {x + w},{y + h} {x},{y + h}" if direction == "up"
+                   else f"{x},{y} {x + w},{y} {x + w - d},{y + h} {x + d},{y + h}")
+        elif direction in ("right", "left"):
+            d = h * inset
+            pts = (f"{x},{y} {x + w},{y + d} {x + w},{y + h - d} {x},{y + h}" if direction == "right"
+                   else f"{x},{y + d} {x + w},{y} {x + w},{y + h} {x},{y + h - d}")
+        else:
+            raise ValueError("direction must be up, down, left or right")
         cid = self.uid("t")
-        self.add(f'<polygon data-box="{cid}" data-kind="card" points="{pts}" fill="{p.tint}" stroke="{p.accent}" stroke-width="1"/>')
+        dash = ' stroke-dasharray="4 3"' if dashed else ""
+        self.add(f'<polygon data-box="{cid}" data-kind="card" points="{pts}" fill="{fill or p.tint}" '
+                 f'stroke="{p.accent}" stroke-width="1.1"{dash}/>')
         self._reg(cid, x, y, w, h)
         if s:
             self.text(x + w / 2, y + h / 2 + size * 0.36, s, size=size, color=p.deep, anchor="middle", box=cid,

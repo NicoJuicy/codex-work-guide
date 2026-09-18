@@ -402,6 +402,15 @@ class LayoutTests(unittest.TestCase):
         y = float(re.search(r'y="([\d.]+)"', label_markup(f, "back")).group(1))
         self.assertAlmostEqual(y, 513.0, places=1)  # above the lane at y 520
 
+    def test_trapezoid_narrows_toward_the_named_end(self) -> None:
+        f = figkit.Fig(400, 200)
+        f.trapezoid(10, 20, 60, 100, "blue", direction="right", inset=0.2, dashed=True)
+        svg = f.svg()
+        self.assertIn('points="10,20 70,40.0 70,100.0 10,120"', svg)  # tall on the left, short on the right
+        self.assertIn('stroke-dasharray="4 3"', svg)
+        with self.assertRaises(ValueError):
+            f.trapezoid(0, 0, 10, 10, "blue", direction="sideways")
+
     def test_token_row_is_registered_so_overhang_is_caught(self) -> None:
         f = figkit.Fig(400, 200)
         card = f.card(10, 10, 120, 40, "blue")
@@ -545,6 +554,23 @@ class QaGateTests(unittest.TestCase):
         self.assertNotIn("on", crowded)  # measured on the ink, not on the 1.5 em line box
         self.assertTrue(card)
         self.assertTrue(any(k.startswith("tidy.crowded") for k in qa.failures(report, 0.0, strict_tidy=True)))
+
+    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
+    def test_browser_reports_a_drawing_that_crosses_its_card(self) -> None:
+        f = figkit.Fig(600, 300)
+        f.card(40, 40, 120, 100, "purple")
+        f.add('<path d="M28 120C60 120 80 70 100 70S140 120 172 120" fill="none" stroke="#6B5BA8"/>')  # tails out
+        f.card(240, 40, 120, 100, "purple")
+        f.add('<path d="M256 120C280 120 290 70 300 70S320 120 344 120" fill="none" stroke="#6B5BA8"/>')  # inside
+        f.card(420, 60, 120, 80, "blue", stack=1)  # the offset sheets behind a stack are decoration, not overflow
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "overflow.svg"
+            f.save(str(path))
+            report = qa.measure(path, _browser_or_none())
+        found = report["tidy"]["sketchOverflow"]
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0]["what"].startswith("path:28,"))
+        self.assertAlmostEqual(found[0]["by"], 12.0, delta=0.6)
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_accepts_a_fork_off_a_trunk(self) -> None:

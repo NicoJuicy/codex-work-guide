@@ -196,7 +196,7 @@ Symmetry is not only equal widths; it is every peer card agreeing on where its c
 The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, a label hidden under a card or chip drawn after it (`textCovered`), strokes crossing uncovered labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget, or coverage below the threshold.
 Every limit has a flag (`--min-pt`, `--print-width-pt`, `--max-words`, `--words-per-10k`, `--min-coverage`); relax one only deliberately and report why.
 The gate also prints a geometry report (`tidy`) that measures what "tidy" usually means by eye: connector ends that stop short of a box edge or die inside one (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), collinear wires lying on top of each other (`edgeOverlap`), peer boxes whose edges or centers nearly line up but miss (`misalign`), and centered labels that sit off-center in their chip (`offCenter`).
-`--strict-tidy` turns those five into failures, together with `crowded`, a label within 3 px of a shape or stroke it does not sit in (measured on the ink, so a serif line box does not count against its neighbours), and is the right setting for a figure that goes into a paper.
+`--strict-tidy` turns those five into failures, together with `sketchOverflow` (a curve, glyph, icon or bar that belongs to a card but crosses its edge) and `crowded`, a label within 3 px of a shape or stroke it does not sit in (measured on the ink, so a serif line box does not count against its neighbours), and is the right setting for a figure that goes into a paper.
 Connector crossings, uneven gaps in a run of peers (`gapUneven`), the median text share of cards, and near-empty cards are printed but never fail, because a column keyed to rows of different heights and a deliberate crossing are legitimate.
 Peers in these checks are boxes of the same kind inside the same container, so nested groups and separate columns are never compared with each other.
 Two exemptions keep the geometry checks honest: a wire end that sits on another wire at a T junction is a fork, not a miss, and a card drawn after a wire with an opaque fill is a knock-out, not an obstacle.
@@ -244,7 +244,7 @@ Link every text element to its container with `box=` so overflow is checked; fre
 | `image(path, x, y, w, h, fit="cover", r=3, frame=HAIR)` | embed a PNG, JPEG or WebP render or photo (up to 8 MB) as a data URI with a thin frame |
 | `chip`, `badge`, `pill`, `step` | small labeled containers, quiet number tags, connector labels, circled step numbers |
 | `text(x, y, s, size, weight, color, anchor, box=id, family="sans", italic=False)` | rich text with `$math$`; `family` is `sans`, `serif`, or `mono` |
-| `tokens`, `trapezoid`, `bracket`, `cylinder`, `bubble`, `block_arrow` | shapes with meaning (section 4.4) |
+| `tokens`, `trapezoid(direction=up/down/left/right, dashed)`, `bracket`, `cylinder`, `bubble`, `block_arrow` | shapes with meaning (section 4.4); a `right` trapezoid is an encoder in a left-to-right flow, a dashed one an EMA copy |
 | `cols(x0, x1, n, gap)`, `rows(y0, y1, n, gap)` | n equal columns or rows with equal gaps, snapped to whole pixels |
 | `place(x0, x1, widths, gap=None)` | x positions for a run of given widths: equal gaps, run centered |
 | `zone(x, y, w, h)` | invisible rectangle registered for layout and ports (a step row, a reserved lane) |
