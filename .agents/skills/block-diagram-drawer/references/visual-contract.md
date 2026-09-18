@@ -126,7 +126,8 @@ Method-specific structure (graphs, token rows, kinematic chains, curves) stays a
 - Source icons with `scripts/svgicons.py`, which spans six permissively licensed families: `tabler`, `lucide` and `iconoir` (line), `phosphor` and Material Symbols `material` / `material200` (solid outline), and `lobe` for model and provider logos. Only the selected files are downloaded.
 - Material Symbols is the only family with real machine and robotics vocabulary, so a figure that needs a manipulator, a conveyor or a sensor usually adopts it for everything.
 - Compare candidates per noun on a contact sheet rendered with `asset` at the size they will be used, and choose the silhouette that names the object.
-- Use one family per figure; do not mix a stroke family with a fill family, or either with built-in `icon()` glyphs.
+- Use one family per figure; do not mix a stroke family with a fill family, or either with built-in `icon()` glyphs. One borrowed icon is acceptable when no other family has the word for it and the style and weight match.
+- Families differ in vocabulary, not only in looks: at the time of writing Material has a manipulator and Lucide has no table, so the family is chosen by what the figure has to name.
 - A line icon's weight is normalized by `sw` (1.5 px default, about 2 px from 36 px up). A solid icon carries its own weight, so at 60 px and above step down a weight (`material200`) instead of enlarging weight 400, which reads as a black blot.
 - Sizes: 18 to 28 px beside a label, 36 to 48 px in a tile above its name, 60 to 110 px when the icon is the card's subject. Color from the role's deep tone, ink, or a neutral steel gray.
 - An icon sits beside a label or above it and never replaces the label; do not put an icon on every card.
