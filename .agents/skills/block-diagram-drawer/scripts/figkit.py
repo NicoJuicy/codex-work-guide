@@ -665,10 +665,22 @@ class Fig:
         p = PAL[role]
         return _mix(p.tint, p.accent, 0.15 + 0.8 * v)
 
+    @staticmethod
+    def cells(x, y, w, h, rows, cols):
+        """Cell geometry of a rows x cols grid over (x, y, w, h): returns cell(r, c) -> (cx, cy, cw, ch), the
+        cell's centre and size, so objects drawn inside a patch grid can sit on its lines and centres."""
+        cw, ch = w / cols, h / rows
+
+        def cell(r, c):
+            return x + (c + 0.5) * cw, y + (r + 0.5) * ch, cw, ch
+        return cell
+
     def patch_grid(self, x, y, w, h, rows, cols, masked=(), content=None, fill="#EEF0F0", line="#FFFFFF",
                    mask_fill="#C9C4B8", frame="#B9B4A8"):
         """An image cut into patches (ViT, MAE, JEPA). `content(x, y, w, h)` draws the picture between the
-        background and the grid, `masked` lists (row, col) patches that are hidden from the encoder."""
+        background and the grid, `masked` lists (row, col) patches that are hidden from the encoder. Snap the
+        picture to the patches with `Fig.cells`: put a horizon or table edge on a grid line and centre each
+        object in a cell, because a line 2 px off a patch boundary reads as a mistake."""
         box = self.card(x, y, w, h, fill=fill, stroke=frame, r=2, kind="thumb")
         if content:
             content(x, y, w, h)
@@ -1141,14 +1153,17 @@ class Fig:
 
     def route(self, a, b, lanes, sides=None, color=WIRE, sw=1.4, dashed=False, open_=False, start=False,
               head=7.5, ta=0.5, tb=0.5, gap=1.0, label=None, label_color=None, label_size=None,
-              label_family="serif", label_seg=None, knockout=False):
+              label_family="serif", label_seg=None, label_at=None, knockout=False):
         """Orthogonal connector that wraps around content through explicit lanes.
 
         `lanes` holds one coordinate per bend, alternating with the direction the wire leaves `a`: a y for a
         top or bottom departure, an x for a left or right one. The wire always arrives perpendicular to b's
         side, so a feedback path around a column is
         `route(last, first, (lane_y, lane_x), sides=("bottom", "left"))`.
-        `label_seg` picks which segment carries the label (default the longest). Returns the path data.
+        `label_seg` picks which segment carries the label (default the longest) and `label_at` where along it the
+        label is centred (an x on a horizontal segment, a y on a vertical one; default its midpoint), so a label on
+        a lane that runs under several panels can sit inside one of them instead of across a panel edge.
+        Returns the path data.
         """
         ra, rb = self.rect(a), self.rect(b)
         sa, sb = sides or self._auto_sides(ra, rb)
@@ -1186,6 +1201,11 @@ class Fig:
             (sx, sy), (ex, ey), kind = segs[i]
             size = label_size or self.fs("min")
             mxp, myp = (sx + ex) / 2, (sy + ey) / 2
+            if label_at is not None:
+                lo, hi = sorted((sx, ex) if kind == "h" else (sy, ey))
+                if not lo <= label_at <= hi:
+                    raise ValueError(f"label_at={label_at:g} is off the labelled segment ({lo:g} to {hi:g})")
+                mxp, myp = (label_at, myp) if kind == "h" else (mxp, label_at)
             if knockout:
                 self.pill(mxp, myp, label, size=size, family=label_family, italic=label_family == "serif")
             elif kind == "h":

@@ -180,6 +180,12 @@ Symmetry is not only equal widths; it is every peer card agreeing on where its c
 - Two feedback labels that describe the same kind of flow sit on one line, not wherever each wire's midpoint happens to be.
 - A relation label between two stacked chips needs a gap of about 26 px: a serif line box is about 1.5 em tall even when its ink is half that. Keep the row pitch equal across the thumbnail rather than widening one gap.
 - Every label keeps at least 3 px of clear space, measured on its ink, from any shape or stroke it does not sit in; the gate's `crowded` check reports the offender and its coordinates.
+- In a band of titled cards, run the band's row line through the centre of the space under the titles, not through the middle of the card, so chips, marks and the wires that meet them share one line; a group label without a card of its own (memory over two cylinders) sits on the card titles' baseline.
+- When two cards are stacked in one panel, give their contents shared columns: an arm over "done" and the next frame over "retry" line up, and the wire from the frame lands straight above what it feeds.
+- Inside a frame cut into patches, snap the scene to the grid: `f.cells(x, y, w, h, rows, cols)` returns each patch's centre and size, so the table edge or horizon sits on a patch boundary and every object is centred in one patch; objects placed at 22 and 58 percent of the width look random once grid lines are drawn over them.
+- Centre a tag (camera icon plus symbol) over its frame by the width of the whole group, and centre a block of example lines in its card by its measured width (monospace is 0.6 em per character); a block pinned 14 px from the left leaves 21 px on the right.
+- Measure an icon's ink before centring it on a row line: Material glyphs fill about two thirds of their box and sit slightly above centre, so a centred box can leave the drawing off the line.
+- A label on a lane that runs under several panels sits inside one panel, placed with `route(..., label_at=x)`; centred on the whole lane it can land on a panel edge, which the gate reports as `straddle`.
 
 ## 7. Workflow
 
@@ -196,7 +202,7 @@ Symmetry is not only equal widths; it is every peer card agreeing on where its c
 The gate fails on any of: text overflowing its container or the canvas, text collisions, partially overlapping sibling boxes, a label hidden under a card or chip drawn after it (`textCovered`), strokes crossing uncovered labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget, or coverage below the threshold.
 Every limit has a flag (`--min-pt`, `--print-width-pt`, `--max-words`, `--words-per-10k`, `--min-coverage`); relax one only deliberately and report why.
 The gate also prints a geometry report (`tidy`) that measures what "tidy" usually means by eye: connector ends that stop short of a box edge or die inside one (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), collinear wires lying on top of each other (`edgeOverlap`), peer boxes whose edges or centers nearly line up but miss (`misalign`), and centered labels that sit off-center in their chip (`offCenter`).
-`--strict-tidy` turns those five into failures, together with `sketchOverflow` (a curve, glyph, icon or bar that belongs to a card but crosses its edge) and `crowded`, a label within 3 px of a shape or stroke it does not sit in (measured on the ink, so a serif line box does not count against its neighbours), and is the right setting for a figure that goes into a paper.
+`--strict-tidy` turns those five into failures, together with `sketchOverflow` (a curve, glyph, icon or bar that belongs to a card but crosses its edge), `straddle` (a card, chip or wire label that sits half inside a panel) and `crowded`, a label within 3 px of a shape or stroke it does not sit in (measured on the ink, so a serif line box does not count against its neighbours), and is the right setting for a figure that goes into a paper.
 Connector crossings, uneven gaps in a run of peers (`gapUneven`), the median text share of cards, and near-empty cards are printed but never fail, because a column keyed to rows of different heights and a deliberate crossing are legitimate.
 Peers in these checks are boxes of the same kind inside the same container, so nested groups and separate columns are never compared with each other.
 Two exemptions keep the geometry checks honest: a wire end that sits on another wire at a T junction is a fork, not a miss, and a card drawn after a wire with an opaque fill is a knock-out, not an obstacle.
@@ -249,6 +255,7 @@ Link every text element to its container with `box=` so overflow is checked; fre
 | `mlp(x, y, w, h, layers, role)` | node-link diagram of a fully connected network |
 | `token_grid(x, y, rows, cols, role, masked, highlight)`, `vector(x, y, n, role)` | token or patch embeddings, and one embedding |
 | `patch_grid(x, y, w, h, rows, cols, masked, content)`, `heatmap(x, y, rows, cols, role)` | an image cut into patches over drawn content, and an attention map |
+| `Fig.cells(x, y, w, h, rows, cols)` | returns `cell(r, c) -> (cx, cy, cw, ch)`, the centre and size of each patch, for snapping a scene to its grid |
 | `tokens`, `trapezoid(direction=up/down/left/right, dashed)`, `bracket`, `cylinder`, `bubble`, `block_arrow` | shapes with meaning (section 4.4); a `right` trapezoid is an encoder in a left-to-right flow, a dashed one an EMA copy |
 | `cols(x0, x1, n, gap)`, `rows(y0, y1, n, gap)` | n equal columns or rows with equal gaps, snapped to whole pixels |
 | `place(x0, x1, widths, gap=None)` | x positions for a run of given widths: equal gaps, run centered |
@@ -257,7 +264,7 @@ Link every text element to its container with `box=` so overflow is checked; fre
 | `connect(a, b, sides=None, ta=.5, tb=.5, mid=None, label=None, knockout=False)` | anchored arrow: straight when the ports line up, else an orthogonal elbow; `ta=None` follows the other box |
 | `bus(src, targets, side="bottom", at=None)` | stem plus one trunk plus one arrow per target |
 | `arc(a, b, sides=None, bulge=40, label=None)` | one quadratic feedback bend; the label sits outside the bend |
-| `route(a, b, lanes, sides=None, label=None, label_seg=None)` | orthogonal feedback path that wraps through reserved lanes |
+| `route(a, b, lanes, sides=None, label=None, label_seg=None, label_at=None)` | orthogonal feedback path that wraps through reserved lanes; `label_at` centres the label at an x (or y) on its segment |
 | `arrow(d, color=WIRE, dashed, start, end, open_)`, `line`, `dot`, `brace` | raw connectors for wires that start at a brace or sketch |
 | `scene(x, y, w, h, frame)` | schematic tabletop thumbnail |
 | `bars`, `curves`, `strip` | schematic data sketches |

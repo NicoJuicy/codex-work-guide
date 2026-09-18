@@ -402,6 +402,16 @@ class LayoutTests(unittest.TestCase):
         y = float(re.search(r'y="([\d.]+)"', label_markup(f, "back")).group(1))
         self.assertAlmostEqual(y, 513.0, places=1)  # above the lane at y 520
 
+    def test_route_label_at_moves_the_label_along_its_segment(self) -> None:
+        f = figkit.Fig(1400, 600)
+        a = f.card(100, 400, 200, 60, "blue")
+        b = f.card(100, 60, 200, 60, "green")
+        f.route(a, b, (520, 60), sides=("bottom", "left"), label="back", label_seg=1, label_at=150, label_size=16)
+        x = float(re.search(r'x="([\d.]+)"', label_markup(f, "back")).group(1))
+        self.assertAlmostEqual(x, 150.0, places=1)
+        with self.assertRaises(ValueError):  # the lane runs from x 200 to x 60
+            f.route(a, b, (520, 60), sides=("bottom", "left"), label="off", label_seg=1, label_at=260)
+
     def test_trapezoid_narrows_toward_the_named_end(self) -> None:
         f = figkit.Fig(400, 200)
         f.trapezoid(10, 20, 60, 100, "blue", direction="right", inset=0.2, dashed=True)
@@ -445,6 +455,11 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(svg.count("<symbol"), 2)  # the coloured and the tinted copies are separate symbols
         self.assertIn('fill="#000"', svg)
         self.assertIn('fill="currentColor"', svg)
+
+    def test_cells_give_patch_centres_and_sizes(self) -> None:
+        cell = figkit.Fig.cells(10, 20, 104, 78, 3, 4)
+        self.assertEqual(cell(0, 0), (23.0, 33.0, 26.0, 26.0))
+        self.assertEqual(cell(2, 3), (101.0, 85.0, 26.0, 26.0))
 
     def test_token_row_is_registered_so_overhang_is_caught(self) -> None:
         f = figkit.Fig(400, 200)
@@ -589,6 +604,21 @@ class QaGateTests(unittest.TestCase):
         self.assertNotIn("on", crowded)  # measured on the ink, not on the 1.5 em line box
         self.assertTrue(card)
         self.assertTrue(any(k.startswith("tidy.crowded") for k in qa.failures(report, 0.0, strict_tidy=True)))
+
+    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
+    def test_browser_reports_a_box_that_straddles_a_panel_edge(self) -> None:
+        f = figkit.Fig(600, 300)
+        f.panel(10, 10, 280, 280, "gray", "(a) Left")
+        f.panel(300, 10, 290, 280, "blue", "(b) Right")
+        f.card(40, 80, 120, 60, "purple")  # inside (a)
+        f.pill(300, 250, "across", size=16)  # centred on (b)'s left edge
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "straddle.svg"
+            f.save(str(path))
+            report = qa.measure(path, _browser_or_none())
+        found = report["tidy"]["straddle"]
+        self.assertTrue(found and all(s["box"].startswith("chip:") for s in found))
+        self.assertTrue(any(k.startswith("tidy.straddle") for k in qa.failures(report, 0.0, strict_tidy=True)))
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_reports_a_drawing_that_crosses_its_card(self) -> None:

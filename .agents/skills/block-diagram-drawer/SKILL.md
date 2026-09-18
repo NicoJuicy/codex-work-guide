@@ -46,6 +46,7 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - Write the grid down as numbers (panel x-ranges, row y-ranges, card rectangles) before writing code, then express it in code with `f.cols`, `f.rows` and `f.place` instead of typed coordinates, so gutters and columns stay exact through every later edit.
 - Keep one height per row and one width per column; when a row of peers needs different heights, it is two rows, not one sloppy one.
 - Give each band row lines (title baseline, content top, content bottom, and an icon band and a name band in a row of tiles) and snap every card's first and last element to them; split a card shared by two things into equal halves.
+- Align inside elements too: give two cards stacked in one panel shared columns, snap a patch-grid scene to its cells (`f.cells`), centre tags and example blocks by their measured width, and measure an icon's ink before centring it on a row line.
 - Before the first wire, check that every cross-band wire can run straight: the two cards must overlap in x, or the gutter it climbs must fall inside the target. Move column edges instead of adding jogs.
 
 ### 3. Assign roles, then draw
@@ -59,7 +60,7 @@ When a card needs a data sketch that is not real data (a trajectory, a progress 
 - Label edges where they are drawn (relation names in mono, flow labels in serif italic) and keep any legend to four entries in a corner.
 - Draw every arrow with `f.connect`, `f.bus`, `f.arc` or `f.route` so both ends sit exactly on a port: `connect` for a flow (straight when the ports line up, an elbow otherwise, `ta=None` to meet a short card head-on), `bus` for one source feeding several targets, `arc` for a short feedback bend, `route` for a loop that wraps around content through a reserved lane.
 - Reach for `f.zone` when a row has no card of its own, and keep hand-typed paths for wires that start at a brace, a sketch or a circled step; anchor even those on `f.port` so both ends land on a real edge.
-- A long feedback wire needs a lane: reserve a gutter between columns or run it through a panel title row, and give its label a knock-out (`knockout=True`) so it sits on the wire instead of beside a card.
+- A long feedback wire needs a lane: reserve a gutter between columns or run it through a panel title row, and give its label a knock-out (`knockout=True`) so it sits on the wire instead of beside a card; `label_at` keeps that label inside one panel.
 - Curves and straight lines are both fine, but no wire may overlap another, cross a card it does not attach to, or stop short of its box.
 - Use bold only for panel titles and key words, medium weight for module names, serif italic for data names and language, monospace for tokens, identifiers and code, and `$...$` for every symbol.
 - Use shapes that carry meaning (token pills, trapezoid encoders, bracketed vectors, cylinders, speech bubbles, circled steps, braces, block arrows between stages) and vendored open-source icons for recognizable objects, products and actions.
@@ -74,7 +75,7 @@ Run the QA gate after every edit, and add `--strict-tidy` for any figure that go
 By default it fails on overflow, collisions, box overlaps, labels hidden under a later card, lines through labels, labels that print below 6 pt, labels longer than six words outside example content, more label words than the canvas budget (1 word per 10,000 px², about 70 words at 1400 by 500), and coverage below 0.40.
 When text does not fit, cut words and move explanations to the caption first, then enlarge boxes or the canvas; never shrink type below `f.fs("min")`.
 Relax a limit only on purpose (`--words-per-10k`, `--max-words`, `--min-coverage`), and report the measured value and the reason to the user.
-The `tidy` block measures what a reader calls tidy: `--strict-tidy` fails on connector ends that miss their box (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), overlapping wires (`edgeOverlap`), peer boxes that nearly line up but miss (`misalign`), off-center chip labels (`offCenter`), labels pressed against a drawing (`crowded`, measured on the ink with 3 px of clear space), and drawings or icons that cross the edge of the card they belong to (`sketchOverflow`).
+The `tidy` block measures what a reader calls tidy: `--strict-tidy` fails on connector ends that miss their box (`edgeGap`), wires crossing a card they do not attach to (`edgeThroughBox`), overlapping wires (`edgeOverlap`), peer boxes that nearly line up but miss (`misalign`), off-center chip labels (`offCenter`), labels pressed against a drawing (`crowded`, measured on the ink with 3 px of clear space), drawings or icons that cross the edge of the card they belong to (`sketchOverflow`), and cards, chips or wire labels that sit half inside a panel (`straddle`).
 Fix a `misalign` by making the two boxes share the number, not by nudging one of them.
 `gapUneven`, `crossings`, the text fill and near-empty cards are hints: read them, then decide.
 Passing the gate is necessary, not sufficient, so always open the PNG and inspect it, including crops around dense cards, math, and connectors.

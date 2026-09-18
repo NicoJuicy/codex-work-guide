@@ -26,7 +26,8 @@ acceptance. Reported checks:
               (edgeOverlap), peer boxes whose edges or centers nearly line up but miss
               (misalign), centered chip labels that sit off-center (offCenter), labels
               pressed within 3 px of a shape or stroke they do not sit in (crowded), and
-              drawings or icons that belong to a card but cross its edge (sketchOverflow).
+              drawings or icons that belong to a card but cross its edge (sketchOverflow), and
+              cards, chips or wire labels that sit half inside a panel (straddle).
               Reported but never failing: connector crossings, uneven gaps in a run of peers
               (gapUneven), the median text share of cards, and cards that are almost empty.
               Peers are boxes of the same kind in the same container, so nested groups and
@@ -264,6 +265,13 @@ drawings.forEach(q=>{const a=q.b.w*q.b.h||1;
   const by=Math.max(home.x-q.b.x,q.b.x+q.b.w-home.x-home.w,home.y-q.b.y,q.b.y+q.b.h-home.y-home.h);
   if(by>1.5) sketchOverflow.push({what:q.el.tagName+':'+[q.b.x,q.b.y,q.b.w,q.b.h].map(Math.round).join(','),
     card:home.kind+':'+Math.round(home.x)+','+Math.round(home.y),by:+by.toFixed(1)});});
+// a card, chip or wire label that sits half in a panel and half outside it
+const straddle=[];
+const panelsAll=Object.values(boxes).filter(b=>b.kind==='panel');
+solid.filter(b=>b.qa!=='ignore').forEach(b=>{panelsAll.forEach(P=>{
+  const ix=Math.min(b.x+b.w,P.x+P.w)-Math.max(b.x,P.x), iy=Math.min(b.y+b.h,P.y+P.h)-Math.max(b.y,P.y);
+  if(ix>1.5&&iy>1.5&&!inside(b,P)) straddle.push({box:b.kind+':'+[b.x,b.y,b.w,b.h].map(Math.round).join(','),
+    panel:[P.x,P.y].map(Math.round).join(','),out:+Math.max(P.x-b.x,b.x+b.w-P.x-P.w,P.y-b.y,b.y+b.h-P.y-P.h).toFixed(1)});});});
 const offCenter=[];
 textEls.forEach((t,i)=>{ if(t.getAttribute('text-anchor')!=='middle') return; const B=boxes[t.dataset.in];
   if(!B||B.kind!=='chip'||texts.filter(x=>x!==texts[i]).length===0) return;
@@ -276,7 +284,7 @@ Object.values(boxes).filter(b=>['card','chip','example'].includes(b.kind)&&b.qa!
   const ratio=inked/area; fills.push(+ratio.toFixed(3));
   if(ratio<0.08&&!others.length) emptyBoxes.push({kind:b.kind,at:[Math.round(b.x),Math.round(b.y)],fill:+ratio.toFixed(3)});});
 fills.sort((a,b)=>a-b);
-const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,crowded,sketchOverflow,
+const tidy={connectors:polys.length,edgeGap,edgeThroughBox,edgeOverlap,crossings,misalign,gapUneven,offCenter,crowded,sketchOverflow,straddle,
   textFillMedian:fills.length?fills[Math.floor(fills.length/2)]:null,emptyBoxes};
 const wordBudget=Math.round(__WORDS_PER_10K__*W*H/10000);
 const out={size:[W,H],texts:texts.length,printWidthPt:PRINT,minFontPx:+MIN_FONT.toFixed(1),overflow,collide,boxOverlap,textCovered,lineText,smallText,longText,
@@ -332,7 +340,8 @@ def render_png(svg_path: Path, size: list[float], browser: str, scale: int = 2) 
     return out
 
 
-TIDY_CHECKS = ("edgeGap", "edgeThroughBox", "edgeOverlap", "misalign", "offCenter", "crowded", "sketchOverflow")
+TIDY_CHECKS = ("edgeGap", "edgeThroughBox", "edgeOverlap", "misalign", "offCenter", "crowded", "sketchOverflow",
+               "straddle")
 TIDY_REPORTS = ("gapUneven", "crossings", "emptyBoxes")  # judgement calls, printed but never failing
 
 
