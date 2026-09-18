@@ -121,6 +121,7 @@ Place an icon with `f.asset(HERE / "assets" / "m-arm.svg", x, y, 104, color=STEE
 - Stroke families take `sw` (1.5 px default, 2 px from about 36 px up); fill families carry their own weight, so step down to a lighter weight (`material200`) instead of enlarging a heavy one.
 - Sizes: 18 to 28 px beside a label, 36 to 48 px in a tile over its name, 60 to 110 px when the icon is a card's subject. Tint with the role's deep color, ink, or a neutral steel gray.
 - Put an icon beside a label or above it in a tile; it never replaces the label, never stands in for model internals, data or math, and never becomes decoration on every card.
+- Place an icon beside a label from the label's measured end with 12 px of clear space, centred on that label's line rather than between two lines; an icon that only repeats a word already written on the card is decoration, so drop it.
 - Use a `lobe` logo only for the exact model or provider the figure names, prefer the mono variant, and keep it smaller than the module name.
 - `get` copies the family license and records the source in `assets/ASSETS.md`; ship both with the figure.
 - Without network access, fall back to figkit's built-in `icon()` glyphs and say so.

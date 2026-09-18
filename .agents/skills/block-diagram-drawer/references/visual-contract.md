@@ -185,6 +185,7 @@ Symmetry is not only equal widths; it is every peer card agreeing on where its c
 - Inside a frame cut into patches, snap the scene to the grid: `f.cells(x, y, w, h, rows, cols)` returns each patch's centre and size, so the table edge or horizon sits on a patch boundary and every object is centred in one patch; objects placed at 22 and 58 percent of the width look random once grid lines are drawn over them.
 - Centre a tag (camera icon plus symbol) over its frame by the width of the whole group, and centre a block of example lines in its card by its measured width (monospace is 0.6 em per character); a block pinned 14 px from the left leaves 21 px on the right.
 - Measure an icon's ink before centring it on a row line: Material glyphs fill about two thirds of their box and sit slightly above centre, so a centred box can leave the drawing off the line.
+- Never place an icon by hand-typed offsets next to text: compute its x from the label's measured width and its y from the label's line. A camera typed in at a fixed x beside "arm · camera" ended 7 px from the text and floated between the title and subtitle lines, and since the subtitle already said camera it was removed.
 - A label on a lane that runs under several panels sits inside one panel, placed with `route(..., label_at=x)`; centred on the whole lane it can land on a panel edge, which the gate reports as `straddle`.
 
 ## 7. Workflow
