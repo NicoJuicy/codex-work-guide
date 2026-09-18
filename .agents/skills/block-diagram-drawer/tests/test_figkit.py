@@ -608,6 +608,22 @@ class QaGateTests(unittest.TestCase):
         self.assertAlmostEqual(found[0]["by"], 12.0, delta=0.6)
 
     @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
+    def test_browser_treats_boxes_sharing_a_baseline_as_aligned(self) -> None:
+        f = figkit.Fig(400, 240)
+        f.card(20, 20, 300, 200, "gray")
+        f.card(40, 60, 40, 30, "gray", kind="chip")  # rests on y = 90
+        f.card(120, 52, 40, 38, "gray", kind="chip")  # taller, rests on the same line
+        f.card(40, 140, 40, 30, "gray", kind="chip")
+        f.card(120, 141, 40, 30, "gray", kind="chip")  # 1 px lower than its neighbour: a real near-miss
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "baseline.svg"
+            f.save(str(path))
+            report = qa.measure(path, _browser_or_none())
+        groups = [set(item["which"]) for item in report["tidy"]["misalign"]]
+        self.assertNotIn({"chip:40,60", "chip:120,52"}, groups)  # sharing a baseline is alignment
+        self.assertIn({"chip:40,140", "chip:120,141"}, groups)
+
+    @unittest.skipUnless(_browser_or_none(), "Chrome/Chromium/Edge not available")
     def test_browser_accepts_a_fork_off_a_trunk(self) -> None:
         f = figkit.Fig(900, 300)
         src = f.card(40, 200, 200, 60, "blue")

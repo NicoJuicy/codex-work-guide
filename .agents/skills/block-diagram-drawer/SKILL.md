@@ -91,7 +91,7 @@ Do at least three gate-and-inspect cycles for a figure the user cares about.
 ## Open-source icons
 
 Readers recognize a robot arm, camera, door, target or checklist faster than the word, so every recognizable object, product or action comes from a real icon set; only data sketches stay hand-drawn.
-`scripts/svgicons.py` searches six permissively licensed families and vendors only the files a figure uses.
+`scripts/svgicons.py` searches nine permissively licensed families (eight icon sets and the LobeHub logos) and vendors only the files a figure uses.
 
 | Family | License | Style | What it is for |
 |---|---|---|---|
@@ -163,10 +163,10 @@ Keep Chinese text upright in sans; never italicize CJK.
 | Path | Use |
 |---|---|
 | `scripts/scaffold.py` | start a figure: vendors the kit and writes a starter build script |
-| `scripts/figkit.py` | primitives: print-size fonts (`fs`), panels, cards, example cards, chips, tags, text with math, real images, tokens, trapezoids, brackets, cylinders, bubbles, steps, block arrows, connectors, thumbnails, sketches |
+| `scripts/figkit.py` | primitives: print-size fonts (`fs`), grid (`cols`, `rows`, `place`), panels, cards, example cards, chips, text with math, real images, network visuals (`layer_stack`, `feature_maps`, `cuboid`, `mlp`, `token_grid`, `vector`, `patch_grid`, `heatmap`), trapezoids, cylinders, bubbles, anchored connectors (`connect`, `bus`, `arc`, `route`), sketches |
 | `scripts/qa_svg_figure.py` | headless-Chrome QA gate (layout, print size, words) and 2x PNG export |
 | `scripts/svg2drawio.py` | convert a finished SVG into an editable `.drawio` file, with an optional draw.io-rendered PNG for checking |
-| `scripts/svgicons.py` | search and vendor open-source SVG icons (Tabler outline, LobeHub logos) with license and ledger |
+| `scripts/svgicons.py` | search and vendor open-source SVG icons (Tabler, Lucide, Iconoir, Phosphor, Material Symbols, Fluent, Fluent Emoji, LobeHub logos) with license and ledger |
 | `references/paper-figure-study.md` | measured sizes, patterns and anti-patterns from ICRA, IROS, RSS and CoRL method figures |
 | `references/licenses/` | MIT license texts copied beside vendored icons |
 | `references/visual-contract.md` | full visual contract, API table, and pitfalls |

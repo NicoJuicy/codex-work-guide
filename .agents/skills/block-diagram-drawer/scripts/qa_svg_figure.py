@@ -204,13 +204,18 @@ const clusters=(vals,tol)=>{const v=[...vals].sort((a,b)=>a-b),out=[]; let cur=[
 // peers are boxes of the same kind in the same container; only peers are expected to line up or share gaps
 const peers={}; solid.forEach(b=>{const k=b.parent+'|'+b.kind; (peers[k]=peers[k]||[]).push(b);});
 const misalign=[];
+const AXES={x:[['left',b=>b.x],['right',b=>b.x+b.w],['center x',b=>b.x+b.w/2]],
+            y:[['top',b=>b.y],['bottom',b=>b.y+b.h],['center y',b=>b.y+b.h/2]]};
 Object.values(peers).filter(bs=>bs.length>1).forEach(bs=>{
-  [['left',b=>b.x],['right',b=>b.x+b.w],['center x',b=>b.x+b.w/2],['top',b=>b.y],['bottom',b=>b.y+b.h],['center y',b=>b.y+b.h/2]]
-   .forEach(([axis,fn])=>clusters(bs.map(fn),4).forEach(c=>{const spread=c[c.length-1]-c[0];
+  Object.values(AXES).forEach(dir=>dir.forEach(([axis,fn])=>clusters(bs.map(fn),4).forEach(c=>{
+     const spread=c[c.length-1]-c[0];
      if(c.length<2||spread<=0.6) return;
-     const members=bs.filter(b=>fn(b)>=c[0]-0.01&&fn(b)<=c[c.length-1]+0.01)
-       .map(b=>b.kind+':'+Math.round(b.x)+','+Math.round(b.y)).slice(0,4);
-     misalign.push({axis,at:+c[0].toFixed(1),spread:+spread.toFixed(1),boxes:c.length,which:members});}));});
+     const group=bs.filter(b=>fn(b)>=c[0]-0.01&&fn(b)<=c[c.length-1]+0.01);
+     // boxes already aligned on another edge of the same direction (objects of different heights resting on
+     // one line, chips of different widths sharing a left edge) are aligned, not nearly aligned
+     if(dir.some(([other,g])=>other!==axis&&Math.max(...group.map(g))-Math.min(...group.map(g))<=0.6)) return;
+     misalign.push({axis,at:+c[0].toFixed(1),spread:+spread.toFixed(1),boxes:c.length,
+       which:group.map(b=>b.kind+':'+Math.round(b.x)+','+Math.round(b.y)).slice(0,4)});})));});
 const gapUneven=[];
 [['row',b=>b.y+b.h/2,b=>b.x,b=>b.x+b.w],['column',b=>b.x+b.w/2,b=>b.y,b=>b.y+b.h]].forEach(([kind,key,lo,hi])=>{
   const groups={}; solid.forEach(b=>{const k=b.parent+'|'+b.kind+'|'+Math.round(key(b)/4)*4; (groups[k]=groups[k]||[]).push(b);});
